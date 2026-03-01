@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>clickpass dev v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080808;
+    --surface: #0f0f0f;
+    --surface-2: #151515;
+    --border: #1f1f1f;
+    --text: #e4e2df;
+    --text-2: #9a9894;
+    --text-3: #636363;
+    --gold: #c8a64e;
+    --gold-bright: #e4c15a;
+    --teal: #00d4aa;
+    --red: #c44;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Outfit', sans-serif;
+    --serif: 'Cormorant Garamond', serif;
+  }
+  body {
+    font-family: var(--mono);
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+  }
+  .wrap {
+    width: min(1120px, 94vw);
+    margin: 0 auto;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8, 8, 8, 0.9);
+    backdrop-filter: blur(12px);
+  }
+  .header-inner {
+    height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-family: var(--serif);
+    font-size: 1.35rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--gold); }
+  .nav {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  .nav a, .btn {
+    color: var(--text-2);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    background: transparent;
+    padding: 7px 10px;
+    font-family: var(--mono);
+    cursor: pointer;
+  }
+  .nav a:hover, .btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  main { padding: 2rem 0 3rem; }
+  .hero {
+    margin-bottom: 1.25rem;
+    padding: 1.2rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    font-style: italic;
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+  }
+  .hero h1 span { color: var(--gold); }
+  .hero p { color: var(--text-2); line-height: 1.6; font-size: 12.5px; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 1rem;
+  }
+  .stat {
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    padding: 10px;
+  }
+  .stat .k {
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .stat .v {
+    font-family: var(--sans);
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  .panel {
+    margin-top: 1rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 1rem;
+  }
+  .panel-title {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 10px;
+  }
+  .cmd {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    background: #0a0a0a;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+    white-space: pre-wrap;
+  }
+  .grid {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 12px;
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    align-items: baseline;
+  }
+  .name {
+    font-family: var(--sans);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .id {
+    color: var(--text-3);
+    font-size: 10px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px dashed #202020;
+  }
+  .row:last-child { border-bottom: 0; }
+  .k {
+    color: var(--text-3);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .val {
+    text-align: right;
+    max-width: 70%;
+    word-break: break-word;
+    color: var(--text);
+    font-size: 11px;
+  }
+  .ok { color: var(--teal); }
+  .none { color: var(--red); }
+  .link {
+    margin-top: 8px;
+    display: inline-block;
+    text-decoration: none;
+    color: var(--gold);
+    border-bottom: 1px dotted var(--gold);
+    font-size: 11px;
+  }
+  .muted { color: var(--text-3); }
+  @media (max-width: 900px) {
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid { grid-template-columns: 1fr; }
+    .nav { gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap header-inner">
+    <div class="logo">clickpass <span>dev v2</span></div>
+    <nav class="nav">
+      <a href="landing.html">Index</a>
+      <a href="app.html">App</a>
+      <a href="dev.html">Dev</a>
+      <a href="single_runs/working_accounts.csv" target="_blank" rel="noopener">CSV</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Account Ops <span>Command Deck</span></h1>
+    <p>Working accounts only. Source: <code>single_runs/working_accounts.csv</code>. This page is tuned for quick handoff: login credentials, API status, and plan/entitlements at a glance.</p>
+    <div class="stats">
+      <div class="stat"><div class="k">Rows</div><div class="v" id="sRows">0</div></div>
+      <div class="stat"><div class="k">With API Key</div><div class="v" id="sApi">0</div></div>
+      <div class="stat"><div class="k">With Plan Data</div><div class="v" id="sPlan">0</div></div>
+      <div class="stat"><div class="k">Unique Domains</div><div class="v" id="sDomains">0</div></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title">Run Command</div>
+    <div class="cmd" id="runCmd">uv run python codex_conductor/batch_signup.py --concurrency 2 --timeout-per-site 240 --llm browseruse-fast --max-steps 12 --signup-timeout 150 --verify-timeout 35 --login-timeout 130 --proxy-country us --capture-summary</div>
+    <button class="btn" id="copyBtn">Copy Command</button>
+    <span id="copyMsg" class="muted" style="margin-left:8px;font-size:11px;"></span>
+  </section>
+
+  <section class="grid" id="cards"></section>
+</main>
+
+<script>
+const CSV_PATH = 'single_runs/working_accounts.csv';
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const nx = text[i + 1];
+    if (q) {
+      if (ch === '"' && nx === '"') { cell += '"'; i++; continue; }
+      if (ch === '"') { q = false; continue; }
+      cell += ch;
+      continue;
+    }
+    if (ch === '"') { q = true; continue; }
+    if (ch === ',') { row.push(cell); cell = ''; continue; }
+    if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; continue; }
+    if (ch === '\r') continue;
+    cell += ch;
+  }
+  if (cell.length || row.length) { row.push(cell); rows.push(row); }
+  const header = rows.shift() || [];
+  return rows.filter(r => r.length && r.some(c => c.trim())).map(r => {
+    const obj = {};
+    header.forEach((h, idx) => obj[h] = r[idx] || '');
+    return obj;
+  });
+}
+
+function maskApiKey(v) {
+  if (!v || v === 'NONE') return 'NONE';
+  if (v.length <= 20) return v;
+  return `${v.slice(0, 8)}...${v.slice(-6)}`;
+}
+
+function mkRow(k, v, cls='') {
+  return `<div class="row"><div class="k">${k}</div><div class="val ${cls}">${v || 'NONE'}</div></div>`;
+}
+
+function render(rows) {
+  const cards = document.getElementById('cards');
+  cards.innerHTML = '';
+  const uniq = new Set();
+  let withApi = 0;
+  let withPlan = 0;
+  for (const r of rows) {
+    const url = (r.url || '').trim();
+    const domain = url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+    uniq.add(domain);
+    const apiOk = r.api_key && r.api_key !== 'NONE';
+    const planOk = r.subscription && r.subscription !== 'NONE' && r.entitlements && r.entitlements !== 'NONE';
+    if (apiOk) withApi++;
+    if (planOk) withPlan++;
+    const name = domain || url || `row-${r.id}`;
+    const html = `
+      <article class="card">
+        <div class="top">
+          <div class="name">${name}</div>
+          <div class="id">#${r.id}</div>
+        </div>
+        ${mkRow('Email', r.email)}
+        ${mkRow('Password', r.password)}
+        ${mkRow('Plan', r.subscription, planOk ? 'ok' : 'none')}
+        ${mkRow('API Key', apiOk ? maskApiKey(r.api_key) : 'NONE', apiOk ? 'ok' : 'none')}
+        ${mkRow('Entitlements', r.entitlements)}
+        ${mkRow('Limits', r.limits_text)}
+        ${r.api_key_url && r.api_key_url !== 'NONE'
+          ? `<a class="link" href="${r.api_key_url}" target="_blank" rel="noopener">Open API URL →</a>`
+          : ''}
+      </article>`;
+    cards.insertAdjacentHTML('beforeend', html);
+  }
+  document.getElementById('sRows').textContent = String(rows.length);
+  document.getElementById('sApi').textContent = String(withApi);
+  document.getElementById('sPlan').textContent = String(withPlan);
+  document.getElementById('sDomains').textContent = String(uniq.size);
+}
+
+async function loadCSV() {
+  const res = await fetch(CSV_PATH, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Failed to load ${CSV_PATH}`);
+  const text = await res.text();
+  const rows = parseCSV(text);
+  render(rows);
+}
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const txt = document.getElementById('runCmd').textContent;
+  try {
+    await navigator.clipboard.writeText(txt);
+    document.getElementById('copyMsg').textContent = 'Copied';
+    setTimeout(() => { document.getElementById('copyMsg').textContent = ''; }, 1200);
+  } catch {
+    document.getElementById('copyMsg').textContent = 'Copy failed';
+  }
+});
+
+loadCSV().catch((err) => {
+  document.getElementById('cards').innerHTML = `<div class="panel">Failed to load CSV: ${err.message}</div>`;
+});
+</script>
+</body>
+</html>

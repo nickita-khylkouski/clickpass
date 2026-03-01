@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>clickpass dev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #080808;
+    --surface: #0e0e0e;
+    --surface-alt: #141414;
+    --border: #1a1a1a;
+    --border-hover: #2a2a2a;
+
+    --text: #e4e2df;
+    --text-2: #9a9894;
+    --text-3: #636363;
+    --text-4: #3a3a3a;
+
+    --gold: #c8a64e;
+    --gold-bright: #e4c15a;
+    --gold-dim: #8a7033;
+
+    --teal: #00d4aa;
+    --teal-dim: rgba(0, 212, 170, 0.08);
+    --teal-border: rgba(0, 212, 170, 0.18);
+
+    --amber: #d4a64e;
+    --red: #c44;
+
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Outfit', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Noise */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
+  }
+
+  ::selection { background: var(--gold); color: var(--bg); }
+
+  .shell {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  /* ═══ HEADER ═══ */
+  header {
+    padding: 2.5rem 0 1rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: var(--serif);
+    font-size: 1.3rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .logo span { color: var(--gold); }
+
+  .logo-tag {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    color: var(--text-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .header-count {
+    font-size: 11px;
+    color: var(--text-4);
+    letter-spacing: 0.03em;
+  }
+
+  .header-count strong {
+    color: var(--gold);
+    font-weight: 500;
+  }
+
+  /* ═══ INPUT SECTION ═══ */
+  .input-section {
+    margin-bottom: 2rem;
+  }
+
+  .input-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .input-label::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    background: var(--gold);
+  }
+
+  .input-row {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s;
+  }
+
+  .input-row:focus-within {
+    border-color: var(--border-hover);
+  }
+
+  .url-input {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+  }
+
+  .url-input::placeholder { color: var(--text-4); }
+
+  .go-btn {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 14px 28px;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .go-btn:hover { background: var(--gold-bright); }
+  .go-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ═══ OUTPUT AREA ═══ */
+  .output {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: none;
+  }
+
+  .output.visible { display: block; animation: slideIn 0.3s ease; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .output-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-alt);
+  }
+
+  .output-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 10.5px;
+    color: var(--text-3);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--text-4);
+  }
+
+  .status-dot.running {
+    background: var(--amber);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .status-dot.done { background: var(--teal); }
+  .status-dot.error { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .output-body {
+    padding: 16px;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--text-2);
+    min-height: 120px;
+  }
+
+  .output-line { margin-bottom: 2px; }
+  .output-line .dim { color: var(--text-4); }
+  .output-line .ok { color: var(--teal); }
+  .output-line .warn { color: var(--amber); }
+  .output-line .val { color: var(--text); font-weight: 500; }
+
+  .output-line.fade-in {
+    animation: lineIn 0.3s ease forwards;
+  }
+
+  @keyframes lineIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ═══ RESULT CARD ═══ */
+  .result-card {
+    margin-top: 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: none;
+    position: relative;
+  }
+
+  .result-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-dim));
+  }
+
+  .result-card.visible { display: block; animation: lineIn 0.4s ease; }
+
+  .result-card-header {
+    padding: 12px 16px;
+    background: rgba(200, 166, 78, 0.04);
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .result-card-header::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 1px;
+    background: var(--gold);
+  }
+
+  .result-rows { padding: 4px 0; }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .result-row + .result-row {
+    border-top: 1px solid var(--border);
+  }
+
+  .result-key { color: var(--text-3); }
+  .result-val { color: var(--text); font-weight: 500; }
+  .result-val.mono { font-size: 11.5px; }
+
+  /* ═══ HISTORY ═══ */
+  .history {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .history-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .history-label::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    background: var(--gold);
+  }
+
+  .history-empty {
+    font-size: 11.5px;
+    color: var(--text-4);
+    font-style: italic;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    transition: background 0.15s;
+  }
+
+  .history-item:last-child { border-bottom: none; }
+  .history-item:hover { background: rgba(200, 166, 78, 0.02); }
+
+  .history-url { color: var(--text-2); }
+  .history-status { color: var(--text-3); font-size: 11px; }
+  .history-status.success { color: var(--teal); }
+
+  /* ═══ FOOTER ═══ */
+  footer {
+    margin-top: 4rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--border);
+    font-size: 10.5px;
+    color: var(--text-4);
+    display: flex;
+    justify-content: space-between;
+    letter-spacing: 0.03em;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .dev-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .dev-nav a {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-4);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .dev-nav a:hover { color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <header>
+    <div class="logo"><span>click</span>pass <span class="logo-tag">dev v0.1</span></div>
+    <div class="header-right">
+      <nav class="dev-nav">
+        <a href="landing.html">Index</a>
+        <a href="app.html">App</a>
+        <a href="devv2.html">Dev V2</a>
+      </nav>
+      <div class="header-count">accounts: <strong><span id="totalCount">0</span></strong></div>
+    </div>
+  </header>
+
+  <div class="input-section">
+    <div class="input-label">Target URL</div>
+    <div class="input-row">
+      <input type="text" class="url-input" id="urlInput" placeholder="https://example.com" spellcheck="false" autocomplete="off">
+      <button class="go-btn" id="goBtn" onclick="run()">clickpass it</button>
+    </div>
+  </div>
+
+  <div class="output" id="output">
+    <div class="output-bar">
+      <div class="output-bar-left">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">idle</span>
+      </div>
+      <span style="font-size:11px;color:var(--text-3)" id="elapsed"></span>
+    </div>
+    <div class="output-body" id="outputBody"></div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-card-header">Account Created</div>
+    <div class="result-rows" id="resultRows"></div>
+  </div>
+
+  <div class="history">
+    <div class="history-label">History</div>
+    <div id="historyList"><div class="history-empty">No runs yet</div></div>
+  </div>
+
+  <footer>
+    <span>clickpass dev console</span>
+    <span>Mar 2026</span>
+  </footer>
+</div>
+
+<script>
+let running = false;
+let historyItems = [];
+let totalCount = 0;
+let evtSource = null;
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function stageClass(stage) {
+  if (['setup','model','creds'].includes(stage)) return 'dim';
+  if (['verify','email'].includes(stage)) return 'warn';
+  if (['login','session'].includes(stage)) return 'ok';
+  if (['signup'].includes(stage)) return 'val';
+  return 'dim';
+}
+
+function appendLog(raw) {
+  const body = document.getElementById('outputBody');
+  const div = document.createElement('div');
+  div.className = 'output-line fade-in';
+
+  // Parse "[  12.3s] [stage] message"
+  const m = raw.match(/^\s*\[\s*([\d.]+)s\]\s*\[(\w+)\]\s*(.*)/);
+  if (m) {
+    const [, t, stage, msg] = m;
+    const cls = stageClass(stage);
+    div.innerHTML = `<span class="dim">${esc(t)}s</span> <span class="${cls}">[${esc(stage)}]</span> ${esc(msg)}`;
+  } else {
+    div.innerHTML = esc(raw);
+  }
+
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+
+function showResult(r, domain) {
+  const card = document.getElementById('resultCard');
+  const signupOk = r.signup === 'ok';
+  const loginOk = r.login === 'ok';
+  const hasKey = r.api_key && r.api_key !== 'NONE';
+
+  let statusText, statusColor;
+  if (signupOk && loginOk && hasKey) { statusText = 'complete'; statusColor = 'var(--teal)'; }
+  else if (signupOk && loginOk) { statusText = 'logged in (no key)'; statusColor = 'var(--amber)'; }
+  else if (signupOk) { statusText = 'signed up'; statusColor = 'var(--amber)'; }
+  else { statusText = 'failed'; statusColor = 'var(--red)'; }
+
+  const rows = [
+    ['Site', domain],
+    ['Email', r.email || '\u2014'],
+    ['Password', r.password || '\u2014'],
+    ['Username', r.username || '\u2014'],
+    ['Signup', signupOk ? 'ok' : 'FAILED'],
+    ['Verified', r.verified || '\u2014'],
+    ['Login', loginOk ? 'ok' : (r.login || 'failed')],
+  ];
+  if (hasKey) rows.push(['API Key', r.api_key]);
+  if (r.key_url) rows.push(['Key URL', r.key_url]);
+  if (r.notes) rows.push(['Notes', r.notes]);
+
+  document.getElementById('resultRows').innerHTML = rows.map(([k, v]) => {
+    const cls = k === 'API Key' ? 'result-val mono' : 'result-val';
+    return `<div class="result-row"><span class="result-key">${esc(k)}</span><span class="${cls}">${esc(v)}</span></div>`;
+  }).join('');
+
+  card.classList.add('visible');
+}
+
+function finish(domain, ok) {
+  clearInterval(window._timer);
+  const dot = document.getElementById('statusDot');
+  const st = document.getElementById('statusText');
+  const btn = document.getElementById('goBtn');
+
+  dot.className = ok ? 'status-dot done' : 'status-dot error';
+  st.textContent = ok ? 'done' : 'error';
+  btn.disabled = false;
+  btn.textContent = 'clickpass it';
+  running = false;
+  evtSource = null;
+
+  if (domain) {
+    totalCount++;
+    document.getElementById('totalCount').textContent = totalCount;
+    historyItems.unshift({ domain, time: new Date().toLocaleTimeString(), ok });
+    renderHistory();
+  }
+}
+
+function run() {
+  let url = document.getElementById('urlInput').value.trim();
+  if (!url || running) return;
+  if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+  running = true;
+  const btn = document.getElementById('goBtn');
+  btn.disabled = true;
+  btn.textContent = 'running...';
+
+  const output = document.getElementById('output');
+  const body = document.getElementById('outputBody');
+  const dot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const elapsed = document.getElementById('elapsed');
+  const resultCard = document.getElementById('resultCard');
+
+  output.classList.add('visible');
+  resultCard.classList.remove('visible');
+  body.innerHTML = '';
+  dot.className = 'status-dot running';
+  statusText.textContent = 'working';
+
+  const start = Date.now();
+  window._timer = setInterval(() => {
+    elapsed.textContent = ((Date.now() - start) / 1000).toFixed(1) + 's';
+  }, 100);
+
+  let domain;
+  try { domain = new URL(url).hostname.replace('www.', ''); } catch { domain = url; }
+
+  appendLog(`$ clickpass signup ${domain}`);
+
+  evtSource = new EventSource('/run?url=' + encodeURIComponent(url));
+
+  evtSource.addEventListener('log', e => {
+    appendLog(JSON.parse(e.data));
+  });
+
+  evtSource.addEventListener('result', e => {
+    showResult(JSON.parse(e.data), domain);
+  });
+
+  evtSource.addEventListener('done', e => {
+    evtSource.close();
+    const d = JSON.parse(e.data);
+    finish(domain, d.code === 0);
+  });
+
+  evtSource.onerror = () => {
+    evtSource.close();
+    appendLog('connection lost');
+    finish(domain, false);
+  };
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!historyItems.length) {
+    list.innerHTML = '<div class="history-empty">No runs yet</div>';
+    return;
+  }
+  list.innerHTML = historyItems.map(h => `
+    <div class="history-item">
+      <span class="history-url">${esc(h.domain)}</span>
+      <span class="history-status ${h.ok ? 'success' : ''}">${esc(h.time)}</span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') run();
+});
+</script>
+</body>
+</html>

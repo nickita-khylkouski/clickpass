@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE INDEX — Developer Tool Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #080808;
+    --bg-card: #0f0f0f;
+    --bg-elevated: #161616;
+    --bg-input: #0a0a0a;
+    --text: #e4e2df;
+    --text-muted: #636363;
+    --text-dim: #3a3a3a;
+    --gold: #c8a64e;
+    --gold-bright: #e4c15a;
+    --gold-dim: #8a7033;
+    --gold-glow: rgba(200, 166, 78, 0.12);
+    --teal: #00d4aa;
+    --teal-glow: rgba(0, 212, 170, 0.1);
+    --sponsor-orange: #d4764a;
+    --border: #1a1a1a;
+    --border-hover: #2a2a2a;
+    --danger: #c44;
+
+    --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --font-heading: 'Outfit', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+    --max-w: 1140px;
+    --gap: 1.25rem;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
+  }
+
+  ::selection { background: var(--gold); color: var(--bg); }
+
+  a { color: var(--gold); text-decoration: none; transition: color 0.2s; }
+  a:hover { color: var(--gold-bright); }
+
+  .wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 2rem; }
+
+  /* ─── HEADER ─── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(8, 8, 8, 0.85);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 52px;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 1.5rem; }
+
+  .logo {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+
+  .logo span { color: var(--gold); }
+
+  .header-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--teal);
+    border-radius: 50%;
+    display: inline-block;
+    animation: pulse-dot 2s ease-in-out infinite;
+    box-shadow: 0 0 6px var(--teal);
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .header-nav { display: flex; align-items: center; gap: 1.5rem; }
+  .header-nav a { font-size: 11.5px; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; }
+  .header-nav a:hover { color: var(--gold); }
+
+  .btn-subscribe {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 6px 16px;
+    font-family: var(--font-heading);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-subscribe:hover { background: var(--gold-bright); transform: translateY(-1px); }
+
+  /* ─── HERO ─── */
+  .hero {
+    padding: 6rem 0 4rem;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .hero-issue {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .hero-issue .divider { color: var(--text-dim); }
+
+  .hero h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.8rem, 6vw, 4.5rem);
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 1.5rem;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--gold);
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-family: var(--font-heading);
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--text-muted);
+    max-width: 520px;
+    margin: 0 auto 2.5rem;
+    line-height: 1.6;
+  }
+
+  .hero-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .hero-email {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 10px 16px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text);
+    width: 280px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .hero-email::placeholder { color: var(--text-dim); }
+  .hero-email:focus { border-color: var(--gold-dim); }
+
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    margin-top: 3rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: var(--gold);
+  }
+  .stat-label {
+    font-size: 10.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-top: 0.25rem;
+  }
+
+  /* ─── SECTION COMMON ─── */
+  .section { padding: 5rem 0; border-bottom: 1px solid var(--border); }
+
+  .section-label {
+    font-family: var(--font-heading);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-label::before {
+    content: '';
+    display: inline-block;
+    width: 12px;
+    height: 2px;
+    background: var(--gold);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+    font-weight: 400;
+    font-style: italic;
+    color: var(--text);
+    margin-bottom: 2.5rem;
+  }
+
+  /* ─── SPONSOR FEATURED ─── */
+  .sponsor-card {
+    background: linear-gradient(135deg, rgba(212, 118, 74, 0.06), rgba(212, 118, 74, 0.02));
+    border: 1px solid rgba(212, 118, 74, 0.15);
+    padding: 2.5rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
+  }
+
+  .sponsor-badge {
+    position: absolute;
+    top: -1px;
+    right: 2rem;
+    background: var(--sponsor-orange);
+    color: var(--bg);
+    font-family: var(--font-heading);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+  }
+
+  .sponsor-icon {
+    width: 72px;
+    height: 72px;
+    background: rgba(212, 118, 74, 0.1);
+    border: 1px solid rgba(212, 118, 74, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: var(--font-display);
+    font-size: 2rem;
+    color: var(--sponsor-orange);
+  }
+
+  .sponsor-content h3 {
+    font-family: var(--font-heading);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  .sponsor-content p {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  .sponsor-link {
+    font-size: 11.5px;
+    color: var(--sponsor-orange);
+    font-weight: 500;
+  }
+
+  /* ─── TOOL CARDS (PICKS) ─── */
+  .picks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .tool-card {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    transition: all 0.25s;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .tool-card:hover {
+    background: var(--bg-elevated);
+  }
+
+  .tool-card:hover .tool-name { color: var(--gold); }
+
+  .tool-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--gold);
+    transition: width 0.3s ease;
+  }
+
+  .tool-card:hover::after { width: 100%; }
+
+  .tool-num {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+    margin-bottom: 0.85rem;
+    font-weight: 300;
+  }
+
+  .tool-name {
+    font-family: var(--font-heading);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    transition: color 0.2s;
+    margin-bottom: 0.3rem;
+  }
+
+  .tool-domain {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .tool-desc-placeholder {
+    height: 1px;
+    background: var(--border);
+    width: 60%;
+    margin-bottom: 1rem;
+  }
+
+  .tool-visit {
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: color 0.2s;
+  }
+
+  .tool-card:hover .tool-visit { color: var(--gold); }
+
+  .tool-visit .arrow { transition: transform 0.2s; }
+  .tool-card:hover .tool-visit .arrow { transform: translateX(3px); }
+
+  /* ─── DIRECTORY ─── */
+  .dir-search-wrap {
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+
+  .dir-search {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 12px 16px 12px 40px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .dir-search:focus { border-color: var(--gold-dim); }
+  .dir-search::placeholder { color: var(--text-dim); }
+
+  .dir-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .dir-count {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+    letter-spacing: 0.03em;
+  }
+
+  .dir-list {
+    columns: 2;
+    column-gap: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .dir-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(26, 26, 26, 0.6);
+    break-inside: avoid;
+    transition: background 0.15s;
+  }
+
+  .dir-item:hover { background: rgba(200, 166, 78, 0.03); }
+
+  .dir-item-num {
+    font-size: 10px;
+    color: var(--text-dim);
+    min-width: 22px;
+    text-align: right;
+    font-weight: 300;
+  }
+
+  .dir-item-name {
+    font-family: var(--font-heading);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .dir-item-domain {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  .dir-item a:hover .dir-item-name { color: var(--gold); }
+
+  /* ─── API SECTION ─── */
+  .api-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+  }
+
+  .api-signup {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 2.5rem;
+  }
+
+  .api-signup h3 {
+    font-family: var(--font-heading);
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .api-signup p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .api-form { display: flex; flex-direction: column; gap: 0.75rem; }
+
+  .api-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--gold-dim); }
+  .api-input::placeholder { color: var(--text-dim); }
+
+  .btn-generate {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 11px 20px;
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-generate:hover:not(:disabled) { background: var(--gold-bright); }
+  .btn-generate:disabled { opacity: 0.5; cursor: wait; }
+
+  .terminal-output {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    margin-top: 1rem;
+    font-size: 11.5px;
+    line-height: 1.8;
+    display: none;
+    overflow: hidden;
+  }
+
+  .terminal-output.active { display: block; }
+
+  .term-line { color: var(--text-muted); opacity: 0; animation: termFadeIn 0.3s ease forwards; }
+  .term-line .cmd { color: var(--text-dim); }
+  .term-line .ok { color: var(--teal); }
+  .term-line .val { color: var(--gold); }
+
+  @keyframes termFadeIn { to { opacity: 1; } }
+
+  .api-result {
+    background: var(--bg-elevated);
+    border: 1px solid var(--gold-dim);
+    padding: 1.25rem;
+    margin-top: 1rem;
+    display: none;
+  }
+
+  .api-result.active { display: block; }
+
+  .api-result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  .api-result-row:last-child { border-bottom: none; }
+  .api-result-label { color: var(--text-muted); }
+  .api-result-value { color: var(--gold); font-weight: 500; }
+  .api-result-value.key-val { font-size: 11px; }
+
+  .api-example {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 2.5rem;
+  }
+
+  .api-example h3 {
+    font-family: var(--font-heading);
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .api-example p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .code-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1.25rem;
+    font-size: 11.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+
+  .code-comment { color: var(--text-dim); }
+  .code-key { color: var(--teal); }
+  .code-str { color: var(--gold); }
+
+  .endpoint-list { list-style: none; }
+  .endpoint-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .endpoint-list li:last-child { border-bottom: none; }
+  .endpoint-method {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--teal);
+    letter-spacing: 0.05em;
+    min-width: 32px;
+  }
+  .endpoint-path { color: var(--text); }
+  .endpoint-desc { color: var(--text-dim); margin-left: auto; font-size: 11px; }
+
+  /* ─── PRICING ─── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .price-card {
+    background: var(--bg-card);
+    padding: 2.5rem;
+    position: relative;
+  }
+
+  .price-card.featured {
+    background: var(--bg-elevated);
+    border-top: 2px solid var(--gold);
+  }
+
+  .price-tier {
+    font-family: var(--font-heading);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+
+  .price-card.featured .price-tier { color: var(--gold); }
+
+  .price-amount {
+    font-family: var(--font-display);
+    font-size: 2.8rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .price-period {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 2rem;
+  }
+
+  .price-features { list-style: none; }
+  .price-features li {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 5px 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .price-features li::before {
+    content: '—';
+    color: var(--text-dim);
+    font-size: 10px;
+  }
+
+  .price-card.featured .price-features li::before { color: var(--gold-dim); }
+
+  .btn-price {
+    display: block;
+    width: 100%;
+    margin-top: 2rem;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: var(--font-heading);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .btn-price:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .price-card.featured .btn-price { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+  .price-card.featured .btn-price:hover { background: var(--gold-bright); }
+
+  /* ─── SPONSORS CTA ─── */
+  .sponsors-cta {
+    text-align: center;
+    padding: 5rem 2rem;
+    background: linear-gradient(180deg, transparent, rgba(200, 166, 78, 0.03), transparent);
+  }
+
+  .sponsors-cta h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3vw, 2.5rem);
+    font-weight: 400;
+    font-style: italic;
+    margin-bottom: 1rem;
+  }
+
+  .sponsors-cta p {
+    font-size: 13px;
+    color: var(--text-muted);
+    max-width: 500px;
+    margin: 0 auto 2rem;
+    line-height: 1.7;
+  }
+
+  .sponsor-options {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+  }
+
+  .sponsor-option {
+    text-align: center;
+  }
+
+  .sponsor-option-title {
+    font-family: var(--font-heading);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .sponsor-option-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .btn-sponsor {
+    display: inline-block;
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    padding: 10px 28px;
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-sponsor:hover { background: var(--gold); color: var(--bg); }
+
+  /* ─── FOOTER ─── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 3rem 0;
+  }
+
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-left {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .footer-right {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ─── SCROLL REVEAL ─── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── STAGGER CHILDREN ─── */
+  .stagger-children > * { opacity: 0; transform: translateY(12px); transition: opacity 0.4s ease, transform 0.4s ease; }
+  .stagger-children.visible > *:nth-child(1) { transition-delay: 0s; }
+  .stagger-children.visible > *:nth-child(2) { transition-delay: 0.04s; }
+  .stagger-children.visible > *:nth-child(3) { transition-delay: 0.08s; }
+  .stagger-children.visible > *:nth-child(4) { transition-delay: 0.12s; }
+  .stagger-children.visible > *:nth-child(5) { transition-delay: 0.16s; }
+  .stagger-children.visible > *:nth-child(6) { transition-delay: 0.2s; }
+  .stagger-children.visible > *:nth-child(7) { transition-delay: 0.24s; }
+  .stagger-children.visible > *:nth-child(8) { transition-delay: 0.28s; }
+  .stagger-children.visible > *:nth-child(9) { transition-delay: 0.32s; }
+  .stagger-children.visible > *:nth-child(10) { transition-delay: 0.36s; }
+  .stagger-children.visible > *:nth-child(11) { transition-delay: 0.4s; }
+  .stagger-children.visible > *:nth-child(12) { transition-delay: 0.44s; }
+  .stagger-children.visible > * { opacity: 1; transform: translateY(0); }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .api-grid { grid-template-columns: 1fr; }
+    .pricing-grid { grid-template-columns: 1fr; }
+    .dir-list { columns: 1; }
+  }
+
+  @media (max-width: 640px) {
+    .header-nav a:not(.btn-subscribe) { display: none; }
+    .hero-cta { flex-direction: column; }
+    .hero-email { width: 100%; }
+    .sponsor-card { flex-direction: column; text-align: center; }
+    .picks-grid { grid-template-columns: 1fr 1fr; }
+    .hero-stats { gap: 1.5rem; }
+    .sponsor-options { flex-direction: column; gap: 1.5rem; }
+  }
+
+  /* Shimmer for gold text */
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+
+  .shimmer-gold {
+    background: linear-gradient(90deg, var(--gold), var(--gold-bright), var(--gold), var(--gold-bright), var(--gold));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 6s linear infinite;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="wrap header-inner">
+    <div class="header-left">
+      <div class="logo">The <span>Index</span></div>
+      <div class="header-meta">
+        <span class="live-dot"></span>
+        <span>Issue #47</span>
+        <span class="divider">·</span>
+        <span>Mar 1, 2026</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="#picks">Picks</a>
+      <a href="#directory">Directory</a>
+      <a href="#api">API</a>
+      <a href="app.html">App</a>
+      <a href="dev.html">Dev</a>
+      <a href="devv2.html">Dev V2</a>
+      <button class="btn-subscribe" onclick="document.getElementById('api').scrollIntoView({behavior:'smooth'})">Get Access</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-issue reveal">
+      <span>Weekly Brief</span>
+      <span class="divider">/</span>
+      <span>100 Tools Tracked</span>
+      <span class="divider">/</span>
+      <span>Developer Intelligence</span>
+    </div>
+    <h1 class="reveal"><em>The tools reshaping</em> how software gets built.</h1>
+    <p class="hero-sub reveal">Curated weekly intelligence on the developer tools and AI infrastructure that matter. Read the brief. Query the API.</p>
+    <div class="hero-cta reveal">
+      <input type="email" class="hero-email" placeholder="you@company.com" id="heroEmail">
+      <button class="btn-subscribe" onclick="handleHeroSubscribe()">Subscribe Free &rarr;</button>
+    </div>
+    <div class="hero-stats reveal">
+      <div class="stat">
+        <div class="stat-num shimmer-gold">100</div>
+        <div class="stat-label">Tools Tracked</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">47</div>
+        <div class="stat-label">Issues Published</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">—</div>
+        <div class="stat-label">Weekly Readers</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">—</div>
+        <div class="stat-label">API Queries / Day</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FEATURED SPONSOR ═══ -->
+<section class="section" id="featured">
+  <div class="wrap">
+    <div class="section-label reveal">Featured This Week</div>
+    <div class="sponsor-card reveal">
+      <div class="sponsor-badge">Sponsored</div>
+      <div class="sponsor-icon">?</div>
+      <div class="sponsor-content">
+        <h3>Your Tool Here</h3>
+        <p>This featured placement reaches the entire readership every week. Premium positioning for developer tools that want to be seen by the right audience.</p>
+        <a href="#sponsors" class="sponsor-link">Become a sponsor &rarr;</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ THIS WEEK'S PICKS ═══ -->
+<section class="section" id="picks">
+  <div class="wrap">
+    <div class="section-label reveal">This Week's Picks</div>
+    <div class="section-title reveal">Editor's selection</div>
+    <div class="picks-grid stagger-children" id="picksGrid"></div>
+  </div>
+</section>
+
+<!-- ═══ FULL DIRECTORY ═══ -->
+<section class="section" id="directory">
+  <div class="wrap">
+    <div class="section-label reveal">Full Directory</div>
+    <div class="section-title reveal">All tracked tools</div>
+    <div class="dir-search-wrap reveal">
+      <span class="dir-search-icon">/</span>
+      <input type="text" class="dir-search" placeholder="Filter tools..." id="dirSearch" oninput="filterDirectory()">
+    </div>
+    <div class="dir-count" id="dirCount"></div>
+    <div class="dir-list" id="dirList"></div>
+  </div>
+</section>
+
+<!-- ═══ API ACCESS ═══ -->
+<section class="section" id="api">
+  <div class="wrap">
+    <div class="section-label reveal">API Access</div>
+    <div class="section-title reveal">Query the index</div>
+    <div class="api-grid reveal">
+      <div class="api-signup">
+        <h3>Get Your API Key</h3>
+        <p>Enter your email to create an account. We'll generate an API key and allocate credits instantly.</p>
+        <div class="api-form">
+          <input type="email" class="api-input" placeholder="you@company.com" id="apiEmail">
+          <button class="btn-generate" id="btnGenerate" onclick="handleSignup()">Generate API Key &rarr;</button>
+        </div>
+        <div class="terminal-output" id="termOutput"></div>
+        <div class="api-result" id="apiResult">
+          <div class="api-result-row">
+            <span class="api-result-label">API Key</span>
+            <span class="api-result-value key-val" id="apiKeyDisplay"></span>
+          </div>
+          <div class="api-result-row">
+            <span class="api-result-label">Credits</span>
+            <span class="api-result-value">1,000 / month</span>
+          </div>
+          <div class="api-result-row">
+            <span class="api-result-label">Rate Limit</span>
+            <span class="api-result-value">100 req / min</span>
+          </div>
+          <div class="api-result-row">
+            <span class="api-result-label">Plan</span>
+            <span class="api-result-value">Reader (Free)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="api-example">
+        <h3>Endpoints</h3>
+        <p>Query recommendations, find similar tools, and track trending picks.</p>
+        <ul class="endpoint-list">
+          <li>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/v1/recommendations</span>
+            <span class="endpoint-desc">Weekly picks</span>
+          </li>
+          <li>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/v1/similar?url=</span>
+            <span class="endpoint-desc">Find similar tools</span>
+          </li>
+          <li>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/v1/trending</span>
+            <span class="endpoint-desc">Trending this week</span>
+          </li>
+          <li>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/v1/directory</span>
+            <span class="endpoint-desc">Full tool list</span>
+          </li>
+          <li>
+            <span class="endpoint-method">GET</span>
+            <span class="endpoint-path">/v1/search?q=</span>
+            <span class="endpoint-desc">Search tools</span>
+          </li>
+        </ul>
+        <div style="margin-top: 1.5rem;">
+          <div style="font-size: 10.5px; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem;">Example</div>
+          <div class="code-block"><span class="code-comment"># Get this week's picks</span>
+<span class="code-key">curl</span> <span class="code-str">https://api.theindex.dev/v1/recommendations</span> \
+  <span class="code-key">-H</span> <span class="code-str">"Authorization: Bearer idx_sk_..."</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ PRICING ═══ -->
+<section class="section" id="pricing">
+  <div class="wrap">
+    <div class="section-label reveal">Pricing</div>
+    <div class="section-title reveal">Scale with your needs</div>
+    <div class="pricing-grid reveal">
+
+      <div class="price-card">
+        <div class="price-tier">Reader</div>
+        <div class="price-amount">$0</div>
+        <div class="price-period">Free forever</div>
+        <ul class="price-features">
+          <li>Weekly digest email</li>
+          <li>Browse full directory</li>
+          <li>1,000 API credits / month</li>
+          <li>Community access</li>
+        </ul>
+        <button class="btn-price" onclick="document.getElementById('apiEmail').focus()">Get Started</button>
+      </div>
+
+      <div class="price-card featured">
+        <div class="price-tier">Builder</div>
+        <div class="price-amount">$29</div>
+        <div class="price-period">per month</div>
+        <ul class="price-features">
+          <li>Everything in Reader</li>
+          <li>10,000 API credits / month</li>
+          <li>Similarity search endpoint</li>
+          <li>Daily digest option</li>
+          <li>Priority support</li>
+        </ul>
+        <button class="btn-price">Coming Soon</button>
+      </div>
+
+      <div class="price-card">
+        <div class="price-tier">Enterprise</div>
+        <div class="price-amount">Custom</div>
+        <div class="price-period">talk to us</div>
+        <ul class="price-features">
+          <li>Unlimited API credits</li>
+          <li>Custom integrations</li>
+          <li>Dedicated account manager</li>
+          <li>SLA guarantee</li>
+          <li>White-label option</li>
+        </ul>
+        <button class="btn-price">Contact Us</button>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SPONSORS CTA ═══ -->
+<section class="section" id="sponsors">
+  <div class="sponsors-cta">
+    <div class="section-label reveal" style="justify-content: center;">For Sponsors</div>
+    <h2 class="reveal">Reach the developers <br>building what's next.</h2>
+    <p class="reveal">Featured placement in The Index puts your tool in front of a targeted audience of developers, engineering leads, and technical decision-makers.</p>
+    <div class="sponsor-options reveal">
+      <div class="sponsor-option">
+        <div class="sponsor-option-title">Featured Pick</div>
+        <div class="sponsor-option-desc">Top placement in weekly brief</div>
+      </div>
+      <div class="sponsor-option">
+        <div class="sponsor-option-title">Newsletter Banner</div>
+        <div class="sponsor-option-desc">Logo + CTA in email digest</div>
+      </div>
+      <div class="sponsor-option">
+        <div class="sponsor-option-title">API Boost</div>
+        <div class="sponsor-option-desc">Priority in recommendation results</div>
+      </div>
+    </div>
+    <button class="btn-sponsor reveal">Get in Touch &rarr;</button>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="wrap footer-inner">
+    <div class="footer-left">The Index</div>
+    <div class="footer-right">&copy; 2026 &middot; Developer tool intelligence, weekly.</div>
+  </div>
+</footer>
+
+
+<script>
+// ─── TOOL DATA ───
+const tools = [
+  { name: 'Sigmamind', domain: 'sigmamind.ai', url: 'https://sigmamind.ai' },
+  { name: 'Cubic', domain: 'cubic.dev', url: 'https://cubic.dev' },
+  { name: 'Sweep', domain: 'sweep.dev', url: 'https://sweep.dev' },
+  { name: 'Klavis', domain: 'klavis.ai', url: 'https://klavis.ai' },
+  { name: 'Veryfi', domain: 'veryfi.com', url: 'https://veryfi.com' },
+  { name: 'Unsiloed', domain: 'unsiloed.ai', url: 'https://unsiloed.ai' },
+  { name: 'Compyle', domain: 'compyle.ai', url: 'https://compyle.ai' },
+  { name: 'Tessl', domain: 'tessl.io', url: 'https://tessl.io' },
+  { name: 'Gigamind', domain: 'gigamind.dev', url: 'https://gigamind.dev' },
+  { name: 'Vellum', domain: 'vellum.ai', url: 'https://vellum.ai' },
+  { name: 'FlowiseAI', domain: 'flowiseai.com', url: 'https://flowiseai.com' },
+  { name: 'Tess', domain: 'tess.im', url: 'https://tess.im' },
+  { name: 'Asteroid', domain: 'asteroid.ai', url: 'https://asteroid.ai' },
+  { name: 'Tusk', domain: 'usetusk.ai', url: 'https://usetusk.ai' },
+  { name: 'Browse AI', domain: 'browse.ai', url: 'https://browse.ai' },
+  { name: 'Theneo', domain: 'theneo.io', url: 'https://theneo.io' },
+  { name: 'Oversteer', domain: 'oversteer.dev', url: 'https://oversteer.dev' },
+  { name: 'Datasaur', domain: 'datasaur.ai', url: 'https://datasaur.ai' },
+  { name: 'Laminar', domain: 'laminar.sh', url: 'https://laminar.sh' },
+  { name: 'DAGWorks', domain: 'dagworks.io', url: 'https://dagworks.io' },
+  { name: 'Roark', domain: 'roark.ai', url: 'https://roark.ai' },
+  { name: 'Canary Tools', domain: 'canary.tools', url: 'https://canary.tools' },
+  { name: 'AgentMail', domain: 'agentmail.to', url: 'https://agentmail.to' },
+  { name: 'Tessl AI', domain: 'tessl.ai', url: 'https://tessl.ai' },
+  { name: 'Castari', domain: 'castari.com', url: 'https://castari.com' },
+  { name: 'Ellipsis', domain: 'ellipsis.dev', url: 'https://ellipsis.dev' },
+  { name: 'Inspectorio', domain: 'inspectorio.com', url: 'https://inspectorio.com' },
+  { name: 'Waydev', domain: 'waydev.co', url: 'https://waydev.co' },
+  { name: 'Copycat', domain: 'runcopycat.com', url: 'https://runcopycat.com' },
+  { name: 'Altrina', domain: 'altrina.com', url: 'https://altrina.com' },
+  { name: 'Helicone', domain: 'helicone.ai', url: 'https://helicone.ai' },
+  { name: 'Parea', domain: 'parea.ai', url: 'https://parea.ai' },
+  { name: 'Confident AI', domain: 'confident-ai.com', url: 'https://confident-ai.com' },
+  { name: 'Humanloop', domain: 'humanloop.com', url: 'https://humanloop.com' },
+  { name: 'Woz', domain: 'withwoz.com', url: 'https://withwoz.com' },
+  { name: 'Cerebrium', domain: 'cerebrium.ai', url: 'https://cerebrium.ai' },
+  { name: 'Mem0', domain: 'mem0.ai', url: 'https://mem0.ai' },
+  { name: 'Athina', domain: 'athina.ai', url: 'https://athina.ai' },
+  { name: 'Daily', domain: 'daily.co', url: 'https://daily.co' },
+  { name: 'Retell AI', domain: 'retellai.com', url: 'https://retellai.com' },
+  { name: 'Reducto', domain: 'reducto.ai', url: 'https://reducto.ai' },
+  { name: 'Reworkd', domain: 'reworkd.ai', url: 'https://reworkd.ai' },
+  { name: 'BotCity', domain: 'botcity.dev', url: 'https://botcity.dev' },
+  { name: 'Firecrawl', domain: 'firecrawl.dev', url: 'https://firecrawl.dev' },
+  { name: 'Fiber', domain: 'fiber.ai', url: 'https://fiber.ai' },
+  { name: 'Apten', domain: 'apten.ai', url: 'https://apten.ai' },
+  { name: 'Recall', domain: 'recall.ai', url: 'https://recall.ai' },
+  { name: 'Parse', domain: 'parse.bot', url: 'https://parse.bot' },
+  { name: 'Giselles', domain: 'giselles.ai', url: 'https://giselles.ai' },
+  { name: 'AFFiNE', domain: 'affine.pro', url: 'https://affine.pro' },
+  { name: 'Kinde', domain: 'kinde.com', url: 'https://kinde.com' },
+  { name: 'Reddit', domain: 'reddit.com', url: 'https://reddit.com' },
+  { name: 'Embedder', domain: 'embedder.com', url: 'https://embedder.com' },
+  { name: 'InConvo', domain: 'inconvo.com', url: 'https://inconvo.com' },
+  { name: 'Hyperbrowser', domain: 'hyperbrowser.ai', url: 'https://hyperbrowser.ai' },
+  { name: 'Riveter', domain: 'riveterhq.com', url: 'https://riveterhq.com' },
+  { name: 'Keet', domain: 'trykeet.com', url: 'https://trykeet.com' },
+  { name: 'Axiom', domain: 'axiom.ai', url: 'https://axiom.ai' },
+  { name: 'Alter', domain: 'alterhq.com', url: 'https://alterhq.com' },
+  { name: 'Chamber AI', domain: 'mychamberai.app', url: 'https://mychamberai.app' },
+  { name: 'Decisional', domain: 'decisional.com', url: 'https://decisional.com' },
+  { name: 'Firebender', domain: 'firebender.com', url: 'https://firebender.com' },
+  { name: 'Hey API', domain: 'heyapi.dev', url: 'https://heyapi.dev' },
+  { name: 'Truffle', domain: 'trytruffle.ai', url: 'https://trytruffle.ai' },
+  { name: 'Exa', domain: 'exa.ai', url: 'https://exa.ai' },
+  { name: 'Hyperspell', domain: 'hyperspell.com', url: 'https://hyperspell.com' },
+  { name: 'Tambo', domain: 'tambo.co', url: 'https://tambo.co' },
+  { name: 'Contextual AI', domain: 'contextual.ai', url: 'https://contextual.ai' },
+  { name: 'PromptDC', domain: 'promptdc.com', url: 'https://promptdc.com' },
+  { name: 'Terra', domain: 'tryterra.co', url: 'https://tryterra.co' },
+  { name: 'MyClone', domain: 'myclone.is', url: 'https://myclone.is' },
+  { name: 'Kernel', domain: 'kernel.ai', url: 'https://kernel.ai' },
+  { name: 'Langfuse', domain: 'langfuse.com', url: 'https://langfuse.com' },
+  { name: 'Maven', domain: 'maven.com', url: 'https://maven.com' },
+  { name: 'Codebuff', domain: 'codebuff.com', url: 'https://codebuff.com' },
+  { name: 'Bolna', domain: 'bolna.ai', url: 'https://bolna.ai' },
+  { name: 'Middleware', domain: 'middleware.io', url: 'https://middleware.io' },
+  { name: 'OpenMemory', domain: 'openmemory.dev', url: 'https://openmemory.dev' },
+  { name: 'Pacy', domain: 'pacy.dev', url: 'https://pacy.dev' },
+  { name: 'EveryDev', domain: 'everydev.ai', url: 'https://everydev.ai' },
+  { name: 'SkillSafe', domain: 'skillsafe.ai', url: 'https://skillsafe.ai' },
+  { name: 'Cont3xt', domain: 'cont3xt.dev', url: 'https://cont3xt.dev' },
+  { name: 'Traceloop', domain: 'traceloop.com', url: 'https://traceloop.com' },
+  { name: 'Agentic API', domain: 'agenticapi.com', url: 'https://agenticapi.com' },
+  { name: 'QueryPie', domain: 'querypie.com', url: 'https://querypie.com' },
+  { name: 'Greptile', domain: 'greptile.com', url: 'https://greptile.com' },
+  { name: 'Zep', domain: 'getzep.com', url: 'https://getzep.com' },
+  { name: 'Vybe', domain: 'vybe.build', url: 'https://vybe.build' },
+  { name: 'AssemblyAI', domain: 'assemblyai.com', url: 'https://assemblyai.com' },
+  { name: 'Floot', domain: 'floot.com', url: 'https://floot.com' },
+  { name: 'CCAPI', domain: 'ccapi.ai', url: 'https://ccapi.ai' },
+  { name: 'Mike', domain: 'mike.gg', url: 'https://mike.gg' },
+  { name: 'Toolkit CLI', domain: 'toolkit-cli.com', url: 'https://toolkit-cli.com' },
+  { name: 'Codrify', domain: 'codrify.online', url: 'https://codrify.online' },
+  { name: 'ZeroGPT', domain: 'zerogpt.org', url: 'https://zerogpt.org' },
+  { name: 'SuperAgent', domain: 'superagent.sh', url: 'https://superagent.sh' },
+  { name: 'HeyLua', domain: 'heylua.ai', url: 'https://heylua.ai' },
+  { name: 'ElkAPI', domain: 'elkapi.com', url: 'https://elkapi.com' },
+  { name: 'Orthogonal', domain: 'orthogonal.com', url: 'https://orthogonal.com' },
+  { name: 'xAI', domain: 'x.ai', url: 'https://x.ai' },
+];
+
+// ─── RENDER PICKS (first 12) ───
+function renderPicks() {
+  const grid = document.getElementById('picksGrid');
+  const picks = tools.slice(0, 12);
+  grid.innerHTML = picks.map((t, i) => `
+    <a href="${t.url}" target="_blank" rel="noopener" class="tool-card">
+      <div class="tool-num">${String(i + 1).padStart(2, '0')}</div>
+      <div class="tool-name">${t.name}</div>
+      <div class="tool-domain">${t.domain}</div>
+      <div class="tool-desc-placeholder"></div>
+      <div class="tool-visit">Visit <span class="arrow">&rarr;</span></div>
+    </a>
+  `).join('');
+}
+
+// ─── RENDER DIRECTORY ───
+function renderDirectory(filtered) {
+  const list = document.getElementById('dirList');
+  const items = filtered || tools;
+  document.getElementById('dirCount').textContent = `${items.length} tool${items.length !== 1 ? 's' : ''}`;
+
+  list.innerHTML = items.map((t, i) => {
+    const num = tools.indexOf(t) + 1;
+    return `
+      <a href="${t.url}" target="_blank" rel="noopener" class="dir-item">
+        <span class="dir-item-num">${String(num).padStart(2, '0')}</span>
+        <span class="dir-item-name">${t.name}</span>
+        <span class="dir-item-domain">${t.domain}</span>
+      </a>
+    `;
+  }).join('');
+}
+
+function filterDirectory() {
+  const q = document.getElementById('dirSearch').value.toLowerCase().trim();
+  if (!q) return renderDirectory();
+  const filtered = tools.filter(t =>
+    t.name.toLowerCase().includes(q) || t.domain.toLowerCase().includes(q)
+  );
+  renderDirectory(filtered);
+}
+
+// ─── SIGNUP FLOW ───
+async function handleSignup() {
+  const email = document.getElementById('apiEmail').value.trim();
+  if (!email || !email.includes('@')) {
+    document.getElementById('apiEmail').style.borderColor = 'var(--danger)';
+    setTimeout(() => document.getElementById('apiEmail').style.borderColor = '', 1500);
+    return;
+  }
+
+  const btn = document.getElementById('btnGenerate');
+  btn.disabled = true;
+  btn.textContent = 'Initializing...';
+
+  const term = document.getElementById('termOutput');
+  const result = document.getElementById('apiResult');
+  term.innerHTML = '';
+  term.classList.add('active');
+  result.classList.remove('active');
+
+  const lines = [
+    { text: `<span class="cmd">$</span> idx init --email ${email}`, delay: 0 },
+    { text: `<span class="cmd">&rarr;</span> Creating account<span class="cmd">...</span> <span class="ok">done</span>`, delay: 600 },
+    { text: `<span class="cmd">&rarr;</span> Generating API key<span class="cmd">...</span> <span class="ok">done</span>`, delay: 1200 },
+    { text: `<span class="cmd">&rarr;</span> Allocating 1,000 credits<span class="cmd">...</span> <span class="ok">done</span>`, delay: 1800 },
+    { text: `<span class="cmd">&rarr;</span> <span class="ok">Ready.</span>`, delay: 2200 },
+  ];
+
+  for (const line of lines) {
+    await new Promise(r => setTimeout(r, line === lines[0] ? 200 : 400));
+    const div = document.createElement('div');
+    div.className = 'term-line';
+    div.innerHTML = line.text;
+    term.appendChild(div);
+  }
+
+  await new Promise(r => setTimeout(r, 600));
+
+  const key = 'idx_sk_live_' + Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+
+  document.getElementById('apiKeyDisplay').textContent = key;
+  result.classList.add('active');
+
+  btn.textContent = 'API Key Generated';
+}
+
+function handleHeroSubscribe() {
+  const email = document.getElementById('heroEmail').value.trim();
+  if (email) {
+    document.getElementById('apiEmail').value = email;
+  }
+  document.getElementById('api').scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => {
+    if (email) handleSignup();
+    else document.getElementById('apiEmail').focus();
+  }, 800);
+}
+
+// ─── SCROLL REVEAL ───
+function initScrollReveal() {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal, .stagger-children').forEach(el => observer.observe(el));
+}
+
+// ─── INIT ───
+renderPicks();
+renderDirectory();
+initScrollReveal();
+</script>
+
+</body>
+</html>

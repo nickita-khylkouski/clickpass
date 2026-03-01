@@ -1,0 +1,17 @@
+.env
+__pycache__/
+.venv/
+*.log
+.claude/
+.superset/
+batch_conductor/
+single_runs/
+ops/
+clickpass/
+clickpass.zip
+api_docs.json
+scrape_docs.py
+tmp_appsidekit_inspect/
+windsurf_demo/
+codex_conductor/
+.server-*

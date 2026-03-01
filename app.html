@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>clickpass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #080808;
+    --surface: #0e0e0e;
+    --surface-2: #141414;
+    --border: #1a1a1a;
+    --border-hover: #2a2a2a;
+    --text: #e4e2df;
+    --text-2: #9a9894;
+    --text-3: #636363;
+    --text-4: #3a3a3a;
+    --gold: #c8a64e;
+    --gold-bright: #e4c15a;
+    --gold-dim: #8a7033;
+    --gold-glow: rgba(200, 166, 78, 0.15);
+    --teal: #00d4aa;
+    --teal-bg: rgba(0, 212, 170, 0.08);
+    --teal-border: rgba(0, 212, 170, 0.2);
+    --teal-glow: rgba(0, 212, 170, 0.5);
+    --red: #c44;
+    --red-bg: rgba(204, 68, 68, 0.06);
+    --purple: #a78bfa;
+    --blue: #60a5fa;
+    --pink: #f472b6;
+    --cyan: #22d3ee;
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Outfit', -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    touch-action: none;
+    user-select: none;
+  }
+
+  ::selection { background: var(--gold); color: var(--bg); }
+
+  /* ═══════════════════════════════════════════
+     NOISE OVERLAY
+     ═══════════════════════════════════════════ */
+  .bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px;
+  }
+
+  /* ═══════════════════════════════════════════
+     PHASES
+     ═══════════════════════════════════════════ */
+  .phase {
+    display: none;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+  .phase.active { display: flex; }
+
+  /* ═══════════════════════════════════════════
+     PARTICLES & RIPPLE
+     ═══════════════════════════════════════════ */
+  .particle {
+    position: fixed;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .swipe-ripple {
+    position: fixed;
+    border-radius: 50%;
+    border: 2px solid var(--teal);
+    pointer-events: none;
+    z-index: 998;
+    animation: rippleOut 0.6s ease-out forwards;
+  }
+
+  @keyframes rippleOut {
+    0% { width: 0; height: 0; opacity: 0.6; }
+    100% { width: 200px; height: 200px; opacity: 0; margin-top: -100px; margin-left: -100px; }
+  }
+
+  /* ═══════════════════════════════════════════
+     ANIMATIONS
+     ═══════════════════════════════════════════ */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes logoReveal {
+    0% { opacity: 0; transform: translateY(24px); letter-spacing: 0.15em; }
+    100% { opacity: 1; transform: translateY(0); letter-spacing: 0.04em; }
+  }
+
+  @keyframes cardEntrance {
+    from { transform: scale(0.92) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  @keyframes dotBounce {
+    0% { transform: scale(0.5); }
+    60% { transform: scale(1.4); }
+    100% { transform: scale(1.15); }
+  }
+
+  @keyframes goldLine {
+    from { width: 0; }
+    to { width: 32px; }
+  }
+
+  /* ═══════════════════════════════════════════
+     ONBOARDING
+     ═══════════════════════════════════════════ */
+  #onboard {
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .ob-logo {
+    font-family: var(--serif);
+    font-size: clamp(3.2rem, 9vw, 5rem);
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.4rem;
+    text-transform: lowercase;
+    opacity: 0;
+    animation: logoReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .ob-logo span {
+    background: linear-gradient(135deg, var(--gold), var(--gold-bright));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .ob-tagline {
+    font-family: var(--sans);
+    font-size: 1rem;
+    font-weight: 300;
+    color: var(--text-3);
+    max-width: 420px;
+    margin: 0 auto 2.5rem;
+    line-height: 1.7;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.35s;
+  }
+
+  .ob-tagline strong {
+    color: var(--text-2);
+    font-weight: 500;
+  }
+
+  /* Steps */
+  .ob-steps {
+    display: flex;
+    gap: 1px;
+    margin-bottom: 2.5rem;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.55s;
+    background: var(--border);
+    border: 1px solid var(--border);
+    max-width: 460px;
+  }
+
+  .ob-step {
+    background: var(--surface);
+    padding: 1.4rem 1.2rem;
+    flex: 1;
+    text-align: center;
+    transition: background 0.25s;
+    position: relative;
+  }
+
+  .ob-step:hover {
+    background: var(--surface-2);
+  }
+
+  /* Gold underline on hover like landing page tool cards */
+  .ob-step::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--gold);
+    transition: width 0.3s ease;
+  }
+  .ob-step:hover::after { width: 100%; }
+
+  .ob-step-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+  }
+
+  .ob-step-num::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 1px;
+    background: var(--gold);
+  }
+
+  .ob-step-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    line-height: 1;
+  }
+
+  .ob-step-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-3);
+    line-height: 1.5;
+  }
+
+  .ob-step-text strong {
+    color: var(--text-2);
+    font-weight: 600;
+  }
+
+  /* Form */
+  .ob-form {
+    opacity: 0;
+    animation: fadeUp 0.6s ease forwards 0.75s;
+  }
+
+  .ob-input-wrap {
+    display: flex;
+    gap: 0;
+    max-width: 400px;
+    margin: 0 auto 0.75rem;
+    border: 1px solid var(--border);
+  }
+
+  .ob-input {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text);
+    outline: none;
+  }
+  .ob-input:focus { background: var(--surface-2); }
+  .ob-input::placeholder { color: var(--text-4); }
+
+  .ob-btn {
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    padding: 14px 28px;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .ob-btn:hover { background: var(--gold-bright); }
+
+  .ob-note {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-4);
+    letter-spacing: 0.01em;
+  }
+
+  /* ═══════════════════════════════════════════
+     SWIPER PHASE
+     ═══════════════════════════════════════════ */
+  #swiper { position: relative; overflow: hidden; }
+
+  .swiper-header {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .swiper-logo {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+  .swiper-logo span { color: var(--gold); }
+
+  .swiper-progress { display: flex; align-items: center; gap: 0.6rem; }
+  .progress-dots { display: flex; gap: 6px; }
+
+  .progress-dot {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--text-4);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .progress-dot.filled {
+    background: var(--gold);
+    border-color: var(--gold);
+    box-shadow: 0 0 8px rgba(200, 166, 78, 0.4);
+    transform: scale(1.15);
+  }
+
+  .progress-dot.bounce {
+    animation: dotBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .progress-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-3);
+    font-weight: 400;
+  }
+
+  .swiper-subtitle {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-3);
+    padding: 0.75rem 1.5rem 0.5rem;
+    flex-shrink: 0;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+  }
+
+  /* ─── Card Area ─── */
+  .card-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 0.5rem 1.25rem;
+    min-height: 0;
+  }
+
+  .card-stack {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3/4.2;
+    max-height: 100%;
+  }
+
+  /* ─── Swipe Card ─── */
+  .swipe-card {
+    position: absolute;
+    inset: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: grab;
+    will-change: transform;
+    overflow: hidden;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.3);
+    animation: cardEntrance 0.35s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  .swipe-card:active { cursor: grabbing; }
+
+  .swipe-card.behind-1 {
+    transform: scale(0.92) translateY(18px);
+    filter: brightness(0.5);
+    pointer-events: none;
+    animation: none;
+  }
+
+  .swipe-card.behind-2 {
+    transform: scale(0.84) translateY(36px);
+    filter: brightness(0.3);
+    pointer-events: none;
+    animation: none;
+  }
+
+  /* Card image */
+  .card-image {
+    position: absolute;
+    inset: 0;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+
+  .card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+  }
+
+  .card-image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--serif);
+    font-size: 5rem;
+    font-weight: 700;
+    font-style: italic;
+    opacity: 0.12;
+    letter-spacing: -0.04em;
+  }
+
+  .card-image-placeholder[data-tld="ai"] { background: linear-gradient(135deg, #1a0a2e, #2d1b69, #1a0a2e); color: var(--purple); }
+  .card-image-placeholder[data-tld="dev"] { background: linear-gradient(135deg, #0a1a15, #0d2e1f, #0a1a15); color: var(--teal); }
+  .card-image-placeholder[data-tld="com"] { background: linear-gradient(135deg, #1a150a, #2e220d, #1a150a); color: var(--gold); }
+  .card-image-placeholder[data-tld="io"] { background: linear-gradient(135deg, #1a0a1a, #2e1b2e, #1a0a1a); color: var(--pink); }
+  .card-image-placeholder[data-tld="other"] { background: linear-gradient(135deg, #0a1a1e, #0d2e35, #0a1a1e); color: var(--cyan); }
+
+  /* Gradient overlay */
+  .card-gradient {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 55%;
+    background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 35%, rgba(0,0,0,0.0) 100%);
+    pointer-events: none;
+  }
+
+  /* Card info overlay */
+  .card-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 1.25rem 1.5rem;
+    z-index: 2;
+  }
+
+  .card-info-top {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    object-fit: contain;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(8px);
+  }
+
+  .card-name {
+    font-family: var(--serif);
+    font-size: 1.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    text-shadow: 0 2px 16px rgba(0,0,0,0.7);
+  }
+
+  .card-desc {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.65;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 0.65rem;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.5);
+  }
+
+  .card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+
+  .card-tag {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    padding: 3px 8px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(6px);
+    color: rgba(255,255,255,0.6);
+    border: 1px solid rgba(255,255,255,0.06);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  /* Top badges */
+  .card-badge-row {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    z-index: 3;
+  }
+
+  .card-favicon-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(12px);
+    padding: 5px 10px;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .card-favicon-pill img { width: 16px; height: 16px; }
+
+  .card-favicon-pill span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    font-weight: 400;
+  }
+
+  .card-tld {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 10px;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+
+  .card-tld[data-c="ai"] { background: rgba(167, 139, 250, 0.15); color: var(--purple); border: 1px solid rgba(167, 139, 250, 0.25); }
+  .card-tld[data-c="dev"] { background: rgba(52, 211, 153, 0.12); color: var(--teal); border: 1px solid rgba(52, 211, 153, 0.25); }
+  .card-tld[data-c="com"] { background: rgba(226, 183, 79, 0.12); color: var(--gold); border: 1px solid rgba(226, 183, 79, 0.25); }
+  .card-tld[data-c="io"] { background: rgba(244, 114, 182, 0.12); color: var(--pink); border: 1px solid rgba(244, 114, 182, 0.25); }
+  .card-tld[data-c="other"] { background: rgba(34, 211, 238, 0.12); color: var(--cyan); border: 1px solid rgba(34, 211, 238, 0.25); }
+
+  /* ─── Stamp Overlays ─── */
+  .card-stamp {
+    position: absolute;
+    top: 50%;
+    z-index: 6;
+    opacity: 0;
+    pointer-events: none;
+    font-family: var(--serif);
+    font-size: 3rem;
+    font-weight: 700;
+    font-style: italic;
+    letter-spacing: 0.08em;
+    padding: 6px 24px;
+    border: 3px solid;
+    text-transform: uppercase;
+  }
+
+  .card-stamp.like-stamp {
+    left: 1.5rem;
+    transform: translateY(-50%) rotate(-18deg);
+    color: var(--teal);
+    border-color: var(--teal);
+    background: rgba(0, 212, 170, 0.08);
+    text-shadow: 0 0 40px var(--teal-glow);
+  }
+
+  .card-stamp.nope-stamp {
+    right: 1.5rem;
+    transform: translateY(-50%) rotate(18deg);
+    color: var(--red);
+    border-color: var(--red);
+    background: rgba(204, 68, 68, 0.08);
+  }
+
+  /* ─── Swipe Buttons ─── */
+  .swipe-buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.75rem 1.5rem 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .swipe-btn {
+    border: 1.5px solid;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .swipe-btn.skip {
+    width: 60px; height: 60px;
+    border-color: var(--text-4);
+    color: var(--text-3);
+    font-size: 1.4rem;
+  }
+  .swipe-btn.skip:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: var(--red-bg);
+    transform: scale(1.08);
+    box-shadow: 0 0 20px rgba(204, 68, 68, 0.15);
+  }
+
+  .swipe-btn.like-btn {
+    width: 72px; height: 72px;
+    border-color: var(--text-4);
+    color: var(--text-3);
+    font-size: 1.8rem;
+  }
+  .swipe-btn.like-btn:hover {
+    border-color: var(--teal);
+    color: var(--teal);
+    background: var(--teal-bg);
+    transform: scale(1.08);
+    box-shadow: 0 0 24px rgba(0, 212, 170, 0.2);
+  }
+
+  .swipe-btn.undo-btn {
+    width: 42px; height: 42px;
+    border-color: var(--text-4);
+    color: var(--text-4);
+    font-size: 1rem;
+  }
+  .swipe-btn.undo-btn:hover {
+    border-color: var(--text-3);
+    color: var(--text-3);
+  }
+
+  /* ═══════════════════════════════════════════
+     RESULTS PHASE
+     ═══════════════════════════════════════════ */
+  #results {
+    padding: 1.5rem;
+    overflow-y: auto;
+  }
+
+  #results::-webkit-scrollbar { width: 3px; }
+  #results::-webkit-scrollbar-track { background: transparent; }
+  #results::-webkit-scrollbar-thumb { background: var(--text-4); }
+
+  .results-header {
+    text-align: center;
+    padding: 2.5rem 0 1.5rem;
+  }
+
+  .results-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    animation: fadeUp 0.5s ease;
+  }
+
+  .results-header h2 {
+    font-family: var(--serif);
+    font-size: 2.4rem;
+    font-weight: 400;
+    font-style: italic;
+    margin-bottom: 0.3rem;
+    animation: fadeUp 0.5s ease 0.1s both;
+  }
+
+  .results-header p {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-3);
+    animation: fadeUp 0.5s ease 0.2s both;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.75rem;
+    margin-bottom: 1rem;
+    max-width: 440px;
+    margin-left: auto;
+    margin-right: auto;
+    opacity: 0;
+    transform: translateY(20px);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .result-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--gold);
+  }
+
+  .result-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .result-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .result-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--surface-2);
+    flex-shrink: 0;
+  }
+
+  .result-domain {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-3);
+    margin-top: 1px;
+  }
+
+  .result-top > div:nth-child(2) { flex: 1; }
+
+  .result-name {
+    font-family: var(--serif);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .result-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 4px 10px;
+    background: var(--gold-glow);
+    color: var(--gold);
+    border: 1px solid rgba(200, 166, 78, 0.2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .result-desc {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-3);
+    line-height: 1.65;
+    margin-bottom: 1.25rem;
+  }
+
+  .result-details {
+    background: rgba(255,255,255,0.015);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0;
+    margin-bottom: 1.25rem;
+    user-select: text;
+  }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    gap: 12px;
+  }
+
+  .result-label { color: var(--text-3); user-select: text; cursor: text; }
+  .result-value {
+    font-family: var(--mono);
+    color: var(--text);
+    font-weight: 500;
+    font-size: 12px;
+    text-align: right;
+    word-break: break-all;
+    max-width: 66%;
+    user-select: text;
+    cursor: text;
+  }
+  .result-value.gold { color: var(--gold-bright); }
+
+  .result-api-desc {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--text-2);
+    padding: 12px 14px;
+    background: rgba(200, 166, 78, 0.03);
+    border: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+    user-select: text;
+    cursor: text;
+  }
+
+  .result-docs-url {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    font-size: 12px;
+    margin-bottom: 0.75rem;
+    border: 1px solid var(--border);
+    background: rgba(0, 212, 170, 0.03);
+  }
+
+  .result-docs-url .result-label { color: var(--teal); font-weight: 500; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .result-docs-url .result-value { color: var(--text); font-size: 11.5px; user-select: text; cursor: text; word-break: break-all; }
+
+  .result-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .result-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    font-family: var(--sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .result-btn:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(200, 166, 78, 0.04);
+  }
+
+  .results-footer {
+    text-align: center;
+    padding: 1.5rem 0 3rem;
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  .btn-continue {
+    width: 100%;
+    padding: 14px;
+    background: var(--gold);
+    color: var(--bg);
+    border: none;
+    font-family: var(--sans);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+    transition: background 0.2s;
+  }
+  .btn-continue:hover { background: var(--gold-bright); }
+
+  .btn-more {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-3);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 8px;
+  }
+  .btn-more:hover { color: var(--gold); }
+
+  /* ═══════════════════════════════════════════
+     TOAST
+     ═══════════════════════════════════════════ */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(60px);
+    background: var(--surface);
+    border: 1px solid rgba(200, 166, 78, 0.25);
+    padding: 10px 20px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--gold);
+    z-index: 1000;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ═══════════════════════════════════════════
+     NAV
+     ═══════════════════════════════════════════ */
+  .app-nav {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    z-index: 10;
+  }
+
+  .app-nav a {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-4);
+    text-decoration: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .app-nav a:hover { color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<!-- ONBOARDING -->
+<div class="phase active" id="onboard">
+  <nav class="app-nav">
+    <a href="landing.html">Index</a>
+    <a href="dev.html">Dev</a>
+    <a href="devv2.html">Dev V2</a>
+  </nav>
+  <div class="ob-logo"><span>clickpass</span></div>
+  <p class="ob-tagline">
+    We made signups <strong>disappear.</strong><br>
+    Swipe through dev tools. Pick three. Click &mdash; accounts created, trials started, keys in your inbox.
+  </p>
+
+  <div class="ob-steps">
+    <div class="ob-step">
+      <div class="ob-step-num">01</div>
+      <div class="ob-step-icon">&larr; &rarr;</div>
+      <div class="ob-step-text"><strong>Swipe</strong> through curated tools</div>
+    </div>
+    <div class="ob-step">
+      <div class="ob-step-num">02</div>
+      <div class="ob-step-icon">&#9829;</div>
+      <div class="ob-step-text"><strong>Pick 3</strong> you want to try</div>
+    </div>
+    <div class="ob-step">
+      <div class="ob-step-num">03</div>
+      <div class="ob-step-icon">&#10024;</div>
+      <div class="ob-step-text"><strong>Poof.</strong> You're signed up</div>
+    </div>
+  </div>
+
+  <div class="ob-form">
+    <div class="ob-input-wrap">
+      <input type="email" class="ob-input" placeholder="you@company.com" id="userEmail">
+      <button class="ob-btn" onclick="startSwiping()">Start &rarr;</button>
+    </div>
+    <div class="ob-note">clickpass killed the signup form so you never fill one out again.</div>
+  </div>
+</div>
+
+<!-- SWIPER -->
+<div class="phase" id="swiper">
+  <div class="swiper-header">
+    <div class="swiper-logo"><span>click</span>pass</div>
+    <div class="swiper-progress">
+      <div class="progress-dots" id="progressDots">
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+        <div class="progress-dot"></div>
+      </div>
+      <div class="progress-label" id="progressLabel">0 / 3</div>
+    </div>
+  </div>
+
+  <div class="swiper-subtitle" id="swiperSubtitle">Swipe right on tools you want to try</div>
+
+  <div class="card-area">
+    <div class="card-stack" id="cardStack"></div>
+  </div>
+
+  <div class="swipe-buttons" id="swipeButtons">
+    <button class="swipe-btn undo-btn" onclick="undoSwipe()" id="undoBtn" style="visibility:hidden">&#8617;</button>
+    <button class="swipe-btn skip" onclick="doSwipe('left')">&#10005;</button>
+    <button class="swipe-btn like-btn" onclick="doSwipe('right')">&#10003;</button>
+  </div>
+</div>
+
+<!-- creating phase removed — instant results -->
+
+<!-- RESULTS -->
+<div class="phase" id="results">
+  <div class="results-header">
+    <div class="results-icon">&#10024;</div>
+    <h2>Your picks</h2>
+    <p>We'll set these up for you. Check your inbox.</p>
+  </div>
+  <div id="resultCards"></div>
+  <div class="results-footer">
+    <button class="btn-continue" onclick="goBackToSwipe()">Keep swiping &rarr;</button>
+    <button class="btn-more" onclick="showPhase('onboard')">Start over</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DESCRIPTIONS (fresh from Firecrawl) ───
+const DESC = {
+  'affine.pro': 'The universal editor that lets you work, play, present or create just about anything.',
+  'agentmail.to': 'The email inbox API for AI agents',
+  'alterhq.com': 'Alter: The seamless AI that supercharges your Mac. Skip the chat, execute instant actions across all apps. 10x your productivity with complete privacy control.',
+  'altrina.com': 'Altrina automates SOPs and workflows with AI-powered agents. Built by ex-Google and NVIDIA engineers for teams that need reliable, scalable automation.',
+  'apten.ai': 'AI agents that text & call like a human to convert leads. Customize AI conversation flows to guide leads down personalized experiences.',
+  'assemblyai.com': 'Industry-leading Speech AI models. Transcribe speech to text and extract insights from your voice data.',
+  'asteroid.ai': 'Transform your back-office operations with browser agents. Automate insurance quoting, healthcare data entry, and complex workflows without coding. HIPAA compliant.',
+  'athina.ai': 'Collaborative AI development platform designed for your team to build, test and monitor AI features.',
+  'axiom.ai': 'Build browser bots quickly, without code. Automate website actions and repetitive tasks using just your browser.',
+  'bolna.ai': 'Scale customer support, sales & recruitment with Voice Agents. Inbound and outbound calls in multiple languages.',
+  'botcity.dev': 'Enterprise governance for Python+AI at scale: monitor executions, orchestrate automations, generate insights and KPIs for security and compliance.',
+  'browse.ai': 'Easily scrape web data, monitor webpage changes, and turn websites into APIs.',
+  'canary.tools': 'Detect attackers before it\'s too late. Thinkst Canary: 2 minutes setup, nearly 0 false positives, no ongoing overhead.',
+  'castari.com': 'The deployment platform for Claude agents. Build, deploy, and scale AI agents with one command.',
+  'ccapi.ai': 'Unified AI API gateway for OpenAI, Anthropic, Google, DeepSeek & more. Text, image, audio & video through one endpoint. Smart routing, auto failover.',
+  'cerebrium.ai': 'Serverless cloud infrastructure for AI applications. Run serverless GPUs with low cold starts, 10+ GPU types.',
+  'codebuff.com': 'Code faster with AI. Edit your codebase and run terminal commands via natural language instruction.',
+  'codrify.online': 'AI-powered coding platform. Build and deploy applications with Deepseek V3 and Bolt.',
+  'compyle.ai': 'Stop wasting time on 20-minute builds that do the wrong thing. Compyle keeps you in the driver\'s seat\u2014planning first, then asking when unclear.',
+  'confident-ai.com': 'The AI quality layer for engineers, QA teams, and product leaders to build reliable AI.',
+  'cont3xt.dev': 'Give AI coding assistants context about your patterns, architecture, and standards. Stop repeating yourself.',
+  'contextual.ai': 'Context engineering platform built for accuracy. Ship production-grade AI that is secure, scalable, and specialized.',
+  'cubic.dev': 'AI code review platform helping teams like Cal.com and n8n catch bugs and merge PRs 28% faster.',
+  'dagworks.io': 'Build Reliable AI with Apache Hamilton & Apache Burr.',
+  'daily.co': 'The team behind Pipecat. Ultra low latency, open source SDKs, and enterprise reliability since 2016.',
+  'domeapi.io': 'APIs for prediction markets with real-time and historical data from sources like Polymarket and Kalshi.',
+  'datasaur.ai': 'Secure, private LLMs for regulated enterprises. Deploy custom AI workflows behind your firewall.',
+  'decisional.com': 'Your spreadsheet is all you need. Automate complex workflows with AI agents.',
+  'elkapi.com': 'API platform for building and managing scalable API infrastructure.',
+  'ellipsis.dev': 'Automated code reviews and bug fixes. Catches bugs, answers questions, and generates working, tested code.',
+  'embedder.com': 'Generate production-ready C++ & Rust firmware from datasheets. Automate register mapping, timing diagrams, and HIL/SIL verification.',
+  'everydev.ai': 'Discover, review, and discuss AI tools. Community where builders share insights and rate tools.',
+  'exa.ai': 'Web search API that retrieves the best, realtime data from the web for your AI.',
+  'fiber.ai': 'Get 100% deliverable contacts (phones and emails) powered by AI, or your money back.',
+  'firebender.com': 'Write code 10x faster with Firebender, the most powerful AI assistant for Android Studio.',
+  'firecrawl.dev': 'Web crawling, scraping, and search API for AI. Delivers the entire internet to AI agents. Clean, structured, ready to reason with.',
+  'floot.com': 'Build serious apps without coding in minutes.',
+  'flowiseai.com': 'Open source generative AI platform for building AI agents, LLM orchestration, and more.',
+  'getzep.com': 'Goes beyond agent memory with unified context graph, Graph RAG, and automated context assembly. Works with any framework.',
+  'gigamind.dev': 'AI that actually understands your codebase as it grows. Compatible with VSCode, Cursor, Claude, Codex, and more.',
+  'giselles.ai': 'Build custom AI applications visually, no coding required. Automate research, reports, creative tasks with top AI models.',
+  'greptile.com': 'AI Code Reviews that understand your entire codebase. Automate PR reviews, catch bugs faster.',
+  'helicone.ai': 'AI Gateway & LLM Observability. Routing and monitoring for reliable AI apps.',
+  'appsidekit.com': 'iOS growth toolkit for analytics, version gating, and feature flags with a lightweight privacy-first SDK.',
+  'heyapi.dev': 'OpenAPI to TypeScript codegen. Production-ready SDKs, Zod schemas, TanStack Query hooks, 20+ plugins. Used by Vercel and PayPal.',
+  'heylua.ai': 'Build, deploy, and scale enterprise-grade AI agents. Ship your first agent without touching infrastructure.',
+  'humanloop.com': 'Humanloop is joining Anthropic to accelerate the adoption of AI, safely.',
+  'hyperbrowser.ai': 'Cloud browsers for AI agents & Apps. Scalable browser infrastructure for web automation.',
+  'hyperspell.com': 'The memory and context layer for your AI agent. Designed with safety, privacy, and control in mind.',
+  'inconvo.com': 'Developer platform for building reliable data agents that safely query production databases with semantic models and permissions.',
+  'inspectorio.com': 'Improve Quality, Compliance and Delivery operations with tangible insights and data-driven collaboration.',
+  'kernel.ai': 'Resolve entity identities, build hierarchies, increase firmographic accuracy, and turn your CRM into a trusted foundation.',
+  'kinde.com': 'All-in-one developer platform for authentication, access management and billing. Secure and monetize your SaaS from day one.',
+  'klavis.ai': 'MCP infrastructure layer for AI. Sandboxed environments for training LLMs on tool use, enterprise-grade integrations with auth.',
+  'laminar.sh': 'Understand why your agent failed. Iterate fast to fix it. Open-source tracing and evaluation.',
+  'langfuse.com': 'Traces, evals, prompt management and metrics to debug and improve your LLM application. Works with Langchain, OpenAI, LlamaIndex.',
+  'maven.com': 'Live courses with real-world experts in AI, Product, Leadership, Design, Data & Engineering.',
+  'mem0.ai': 'Enables AI apps to continuously learn from past user interactions, enhancing intelligence and personalization.',
+  'middleware.io': 'Full-stack observability with real-time monitoring and diagnostics. Detect issues at scale, keep data secure.',
+  'mike.gg': 'Thoughts on entrepreneurship, startup building, and engineering from someone who built 30+ apps reaching 27M+ users.',
+  'mychamberai.app': 'AI-powered automation platform for Chambers of Commerce and local businesses.',
+  'myclone.is': 'AI Experts Platform. Clone your expertise into AI agents that work for you.',
+  'openmemory.dev': 'Add persistent, project-aware memory to Cursor, Windsurf, and VS Code agents. Context retrieved automatically.',
+  'orthogonal.com': 'The building blocks your agent needs. Modular AI agent infrastructure.',
+  'oversteer.dev': 'Fast, Repeatable, and Reliable Browser Agent for automating web workflows.',
+  'pacy.dev': 'Use your browser to develop apps with AI agents. Integrates with Claude Code, Cursor, and more.',
+  'parea.ai': 'The experimentation and human annotation platform for AI teams.',
+  'parse.bot': 'Describe what you need in plain English. Parse reverse-engineers any website and gives you a live REST API endpoint in minutes.',
+  'promptdc.com': 'Better prompts = Better coding results. One-click prompt rewriting for Lovable, Bolt, Replit, Cursor, VS Code, Windsurf.',
+  'querypie.com': 'Affordable enterprise AI integrating with your existing infrastructure. Successful AI transformation for your business.',
+  'recall.ai': 'API for recordings, transcripts and metadata from Zoom, Google Meet, Microsoft Teams. Meeting Bot API.',
+  'reducto.ai': 'High-quality document ingestion for AI teams. Accurately parse PDFs, Excel spreadsheets, and PowerPoint slides.',
+  'retellai.com': 'Build, test, deploy, and monitor production-ready AI voice agents at scale.',
+  'reworkd.ai': 'End to End Web Scraping. Extract structured data from any website.',
+  'riveterhq.com': 'Replace your entire scraper infrastructure with a single API.',
+  'roark.ai': 'Safety net for voice AI. Monitor calls, run simulations, turn failures into tests before your customers notice.',
+  'runcopycat.com': 'Custom AI workforces for enterprise \u2014 browser automation, email workflows, document processing, cross-system orchestration.',
+  'sigmamind.ai': 'Build and deploy production-grade voice AI agents using a single prompt, real-time tool orchestration, and low-latency infrastructure.',
+  'skillsafe.ai': 'Secured skill registry for AI coding tools. Scan, save, share, and verify skills with cryptographic verification.',
+  'superagent.sh': 'Attack your production system to surface data leaks, harmful outputs, and unwanted actions before users encounter them.',
+  'sweep.dev': 'The fastest AI copilot for JetBrains. Write code 10x faster with intelligent autocomplete and an AI agent.',
+  'tambo.co': 'Build agents that speak your UI. Conversational interfaces for any application.',
+  'tess.im': 'Access ChatGPT, Claude, Gemini, and 250+ AI models in one professional platform. Deploy across unlimited team members.',
+  'tessl.ai': 'Helps teams build AI-native software by giving coding agents structured, versioned context.',
+  'tessl.io': 'Helps teams build AI-native software by giving coding agents structured, versioned context. Ship AI-powered systems that hold up.',
+  'theneo.io': 'AI-native docs & portals: API, SDK & product docs with AI search, automatic changelogs, interactive reference, and branding.',
+  'toolkit-cli.com': '18 months of autonomous development. 150+ commands. Agent-built CI/CD and automation.',
+  'traceloop.com': 'Turns evals and monitors into a continuous feedback loop so every release gets better.',
+  'trykeet.com': 'Automates manual data extraction and validation for implementation managers. Onboard new customers in minutes.',
+  'tryterra.co': 'Health API to integrate with wearables: Garmin, Fitbit, Apple, Google, Polar, Eight Sleep, Oura through a single source.',
+  'trytruffle.ai': 'Automate complex workflows and processes with AI agents that learn and adapt to your business needs.',
+  'unsiloed.ai': 'SOTA vision models to transform multimodal unstructured data. YCombinator-backed.',
+  'usetusk.ai': 'Best AI testing tool for API testing, unit testing, and integration testing. Prevent regressions and boost coverage.',
+  'vellum.ai': 'Describe what you want your agent to do, and Vellum builds it. What once took a team of engineers now takes a single conversation.',
+  'veryfi.com': 'OCR API for data extraction, mobile SDK for document capture. Liberate trapped data in invoices, bills, purchase orders, receipts.',
+  'cactuscompute.com': 'On-device AI runtime for smartphones, laptops, and edge hardware with automatic cloud fallback.',
+  'vybe.build': 'Enterprise-ready custom apps. Built by AI. Powered by your data. Ready in seconds.',
+  'waydev.co': 'Software Engineering Intelligence Platform. DORA Metrics, Developer Experience analysis, SPACE Framework.',
+  'withwoz.com': 'Build real mobile apps you can launch in the App Store. AI with expert human oversight for production apps.',
+  'x.ai': 'xAI builds Grok \u2014 AI chatbot with voice chat, image/video generation, real-time search, and advanced reasoning.',
+  'zerogpt.org': 'AI content analysis platform. Detect AI text, humanize content, check plagiarism. 98.5% accuracy.',
+};
+
+const OG = {
+  'affine.pro': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-b3261a94-c972-425d-961b-6c968043c58a.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967330&Signature=l%2BK4%2BFTtFBK7qz%2FeN07ppbDNIzXJInQ9yKx%2BA3OlFmrqehHsfq6ag0XBGFNXGIZME3AvBJCr2%2FwbrsViCOidDEifMjGqqa4lQlWweeGxd%2BRbalvM43WOeD4cZC1vgvXUYw%2FCySSYs%2BmTMBjU8okEgqp8g9puQTqqPoQIraK0hTzlC%2FSNeZJyzhAkcBt7rBCZPhvkvvbn2GjyHGjZuHCB33JT5ZvMH5LsJjruRsL6cR30WQeewhgFK9DuUnyxQDJ3nqdg99S%2BfvNhVho0BnR%2F%2BmGKWuhmv5fvpz0GVFzc0z18FMFUQayeKIEt%2BvVp5QZ0EgamMCqouM221p75bcUsTg%3D%3D',
+  'agenticapi.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-dd71eb88-1a94-4288-9884-ada13a055459.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967102&Signature=PekHr0X7QuhLe0mHm0%2F3nB%2Fhh4Jy4Uaxb6%2FCbVGGuB%2FUYNZ4j1PdU1Qu4R8Por2vrD7Nx49sPuf%2Fk19p1pbuf6TVmD7fPfDEqjXpslAt6UbJjmbqedTu3be%2BteSfzwuMkWpk55E%2F6ZDPtigbcOumD8%2F7DlaA%2FlcNUgalKPFnO3CUfQefmxIRZHzqG7d91zMXuVzP6qTh8tKlGVlvq739y3UARbMKGDZx%2BJ3J2m2GJe%2FZvr94FLRDkntXhdXAnyo%2F1ELDB8XNosm%2FCn1DTaS4aOyubgHb9OPn97ERqeh%2BfOwU5hHdq59fKgwkmDRJWHIBzsWMXzs8PSOZmeXn1OPYZA%3D%3D',
+  'agentmail.to': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-d0db2505-b306-48a5-b95e-8656ba9ae54e.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967215&Signature=jJzYD%2BCAyAN2H4aYQvbf2NVqaIo1UIyfhEXT5Ofe4dYJWZA7DIOz%2FWURR0nRnoM97JW5%2FrAzkvcNA%2FmiyEzzOrsOTiHbys9FlQwp6K2sawmVtoLK2HJVchCT30%2FHKOZXfS7Zc07lTBVYkPybHQ5YIKg8MtePLNwN8npNMA1KEiXTjYzELPdanGB%2BeAz7A623f8OpR0H3PT4VD3mmKke%2F1oAC%2BreJohbLaTGnlgzYnIUz2cJO7PkWS0Ny%2BgQkAVT5rr%2FHXaITy6qOZWdTOcoB4fM64UJ%2B32APsEtop%2Fya%2FacZIC%2FObcOyviObx63VSB8eWHqb3tgDAB4hkTAjL1q4dA%3D%3D',
+  'alterhq.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-a2e44aa3-1f74-45e8-8285-39df90654a82.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967250&Signature=q9BiQ98QFzq43M9BWzAXgUB6vb%2B%2By6NWEfbDc3P8N9vl0gHX0uEU%2BOe8%2Fa04aPSxHHzn%2FOBPQHl1jH9q4jMblO5%2F0ybdhjRtqHB9fE3H7XJ0UK8w3O3exE9l1imJLrK8x1jkSU52y7%2B7DUYJk6Q6QUlFGBvrBE5NkunlSyTmNH1mNzv9ess2gNhqUHp3BN%2B6DHa4%2FHK7wEKgLzBRgnDZefRFyQadZddJ1YB7Z0yA5RJwL0tJTYQy%2FOtKTIzQCuXlvpWhH0pMLiTGO1g1oMZZZvxl%2B3Za%2B3vc%2BNa2Vq6Io%2Fr9BiuKUfDgMWYpW0rl9%2FeImd2WsJGJxSdi7YiZGC1v%2Fw%3D%3D',
+  'altrina.com': 'https://altrina.com/opengraph-image.jpg',
+  'apten.ai': 'https://apten.ai/images/og-image.jpg',
+  'assemblyai.com': 'https://cdn.prod.website-files.com/67a08d9d7d19f8fb63692894/67e5a4788594c44228a2ed1a_AAI.com%20-%20Meta%20image.png',
+  'asteroid.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-87431ec4-9e22-44dd-8209-6f3632f901ca.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967177&Signature=G54HRs9tNEz7stZ94F1%2BCVMtZswaRaZ16UaRL%2FeRLL5j%2FQX4vV%2FG%2BF91mpheu3m5oPbEKXYERtiuWrnJdJDvWeTY%2FmHDFLhg9xQpTzM5zEJmiMyjj5yIDx6HBEPhjNso%2F3iXFuEMNDN92OA8luX1yOKDDHl%2BE7MFWgOK8cnYKidUnEG%2F9xGTWYELLwMY%2FCzckUAFtdoPTC%2BSotvnFQphmByrnJZAHbJgbwTkpQtPrkdVuFOU9gQEK153f4%2B6LBw9%2BUAc8nQyrPyrPi9jXapbm8P8iEEjp%2Bf5Y2bgZPpgpy76KOEr6adjhCtfE35ru27i5vP2Q7wega2GuW0hK%2ByNwg%3D%3D',
+  'athina.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-d4c57701-2362-415e-b76d-0493b704cb3a.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967052&Signature=TLscCo1z1b6nAyy2bUr997YcXHJ50O9dSYa1eOja%2BkMR1YBhXZlX5C78zCzFwQqRs7%2BqSzLcrRWX%2BygJyUYLnK44QnMdlYF4HXsjkRmQ72NsIAANeVuBOFp%2Fpr8ftcWNvLzCq0Csb4l2lZvGoCT1pXRdYYO47rz%2BLf2oZXSXeGLZN96OvMSCBPEOasSL9mSxuc%2FPnSTpcleyhXfSNOoBaBNTRs3tJE1xEyQ8XNbL4hE6gBrWwPM6XyyrN4n2ElGLpsJesS5Gz4syy3i%2FS6Brsf%2F6ddICbCawTJHTWivMlT1G26QPk410VQNPqHdsYCoCX4VADhZdtX80jxlH4cKiwg%3D%3D',
+  'axiom.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-3afbe2ea-9518-4db0-8459-ee63d25c7ca9.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967351&Signature=UZGmOjcNFTa%2BeDXGqAcYkGb4uPK5l%2FDMwb7QJIAZWRted8cuY6zjulCbCG1E2%2F9OR4NpDUsPQPxNZJkWsClpOxzGOjKOas9NtbsDrkXXWbUTNSjXVHL0lDLB3rUcmd29dlWqlMjGcZ2%2B5fdt73%2BGNo2VLVBAPGVW7QalYsm36zQMR18JTtYQpxEJhyfZPvg4HGb6kDmnuibNGRjJLAbBRnjdCwfEX0JPgMNO9vpeyngpfH6YFTj6Y59rCn331Bn0q8CJB63roq2FdDIq591MB4sl%2FcswVV1j0nqP1MZI6mnuwCijF7eUG4l5t%2BjYD69uLcz9a9Spi8grCuls2n8Zkg%3D%3D',
+  'bolna.ai': 'https://www.bolna.ai/images/bolna-new-banner.png',
+  'botcity.dev': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-f5b610e5-49aa-461c-9fc1-0c54edc357d6.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967074&Signature=oX4BrWjRm%2B%2BSgmNSSifXzmCrbMD8E9lq3m0vd6%2FXTHfR1dzXgdg7MJkchTzUn4z%2B6%2Bw276ZwD7YL%2BJQX58JbwoaGwnKFM6%2FbGcrsjxXlc0uPoizeiu71v%2BdZXlXPvJg2PA1rOBwiE34GxBNqbYwn9pKVzAQH12zPhx2Pd2J1SpjygE9mn7cxxnVhyLv2L85gBuTP6lqt5oc30Z1x8JP4AaQnWpATL4yVmB%2BAXeV3UeOpCyLq%2Fwnrjri5ApfeIT60r4fyMvadXZNoh3yt74Ou7PbZcPsgEsxv3ZhUjtU5JOr7hpsZjhR3tdngLipFdW4Zk2wTHhmy2M%2B7JK2e88Uahg%3D%3D',
+  'browse.ai': 'https://www.browse.ai/static/browseai-home-og-249b1c28b522385cde75740c534a5b85.jpg',
+  'canary.tools': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-0f55987c-e353-4f4b-ad8a-917742311ff4.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967206&Signature=X7B%2B43pb9rn%2BfmnbqUVbgjbGSquIm%2B5zF8Z3LOELnahcnSXZFD5672%2FpPnebH%2F9M2b5t4keJ9Mia3w9qTY9KLoX%2BeW7lPodfMvQ%2FEwW5NH3siuhPVj69a8T2CPu1%2BdaWmw21FgRqH2o2tM6FKWE7uzarX0e7NAQmcrYTAqTAWL4RHz2OP1ec353iJNnwV7GKIvOUUdJx75LbDZD%2Ba6KssFWN99MIeFMfWrgTZG5zQL%2Bpyfh94ypd4GyTW4DZWNliTev1Bjnes%2BYT4OXds%2BYtuPXFmICdUZOVkREA3Q45gYVU84Z4XGI1rn6Mcltl9Ue6Sydto3F8DjVuvKxgbiTRPw%3D%3D',
+  'castari.com': 'https://castari.com/opengraph-image?f78e8f0aac51eb7f',
+  'ccapi.ai': 'https://ccapi.ai/og.png',
+  'cerebrium.ai': 'https://framerusercontent.com/images/x4VZ6y9mF10Uxz2kLjGV3hv8.png',
+  'codebuff.com': 'https://www.codebuff.com/opengraph-image.png',
+  'codrify.online': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-d93e912b-0f69-4ed8-9aa4-3c74cff702ec.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967151&Signature=jXIY1WzmY8kzyDOPq5mV1uU7b0Sq7%2BCoIY%2BeHqfw7XbZgNMgWRTUPkG6ai9JNOZEr1Uzk%2BZkTXFRclq26zhVpiKfjABSL9jyjTO%2FE1IsS1nvJV8lKobqqvLUt6a7AAaikO%2BvJaKJUWFrXom3gJEhPgtIJg7CH3NcZp9T23rbOHZFql0ND4uODfg27LPH8FB6udZL9iYldG6xk%2FyhlB9X8vUJiZ3J9EjEbUNfUthEQNna6VaXnGpsVBveI1K6DfhNUrmmkwP3nf28zw5h2lQ4DtrjM3hSmbntZaxejg5jHVaye%2FTHm4RJ9iPiPSDtOPF%2FJsiCml22xTpBVVeRkUuxZA%3D%3D',
+  'compyle.ai': 'https://compyle.ai/product-screenshots/compyle-screenshot-1.png',
+  'confident-ai.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-8fce6752-5f8b-4a73-8437-11dd8dab4323.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967030&Signature=shOhVOyQD%2BkWrz4gpKwjKa48cFvTmWmhiHt3HVPb87VRN57M4CtcVn5QWy1Ifz3dYBmshwFhSEhNEMNMbjicH%2BpZiEX7RK5u2Zm7JEVHxqGKyFYJWZ5dT4M72td3eJpP3MmzUwKWWSqoCLysGmduwP379o%2Bb3jUFlKGbTpty3orZSuL5NLxG6HDKM117t%2FChuUpsNjqesQKPcNA033Pwdkkh2pGZrREopjqAZX6TRxPOCcMJVIj9NdxSQNxgJ98QT6EVxVeh4DM3X88wsv1lNQ%2Fn5k%2BMQ6oGXi7JjtUHk2fkWSwxs5%2B%2FBP%2FjDYTwOGsx5%2FAOjp7nmZOANuiNFI4JGg%3D%3D',
+  'cont3xt.dev': 'https://cont3xt.dev/banner.jpg',
+  'contextual.ai': 'https://contextual.ai/_next/static/media/og-image.f5ce91ae.png',
+  'cubic.dev': 'https://framerusercontent.com/assets/lYCbNPDX14vl0EhJil60MIXyaQ.jpg',
+  'dagworks.io': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-6dab5e0b-d26d-42bc-bc95-e95e0cc33e16.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967199&Signature=KNS9bttHdMnpS2SQH4UJupHlIYYCblaa3QanJ9V3brQPWuDMZJtaxG0LKrEdTnbFSw2uMydDXuvRfCfNB%2BM7vXs7fF7uqmK%2BtRK2Nuha7YwHNk6m3Ppd2t6isHaShZDbx3ttMG7Xjgo1V89bQeBBFd8ON2l3my8IcI67V4IvWO4wtRKbzDDQTcfUIKNTsirDjQgZvGcOSTz23LbGnlSdf3ibntPigVdTFXKHw2qyxTInKkVxj4eJQEpKG7884zNpC%2BXRh70EWAXr4gdMxZisMRhxUYkTOyp%2FAupVAF5p%2BP1M4kLP9C7hGCQzavg%2FWBHf5UJV4R7XDbJxdugNzpT7vg%3D%3D',
+  'daily.co': 'https://www.daily.co/opengraph-image.jpg?710007f3feabfb5c',
+  'domeapi.io': 'https://pub-65a21cc36ad74a3298bb862f1cb3c2d7.r2.dev/assets/assets/hero-card-preview.jpeg',
+  'datasaur.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-23a6c977-18b5-429a-a71d-84a0ff468858.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967198&Signature=s1QWggVtzpTupEIaxepm4EVArTIsnW1PIlqChQPL0kI3FATEZyk1y873YVfJIQXbArBhUnGuuRYEF2Bxyht0lG%2FKLas5BwpRvklU13qOrlvfX4GBpS0Z7F7EawYXnGoBEfriHU52WwypOa5ugcgcUdXWEFj4hhKaFu7ILNkiHL8%2BK59OYZ41m1xIVk%2BjJPBm41xkpBtcuW1bQGo9MfNqP%2Bo8qRmAg%2FwjpjZIPFNxRVZZmsa9G%2Bn4oe9wumKiGncHT6YmrK%2BQBCq7Aoph9cyzozynXLCjHBj0f9exd%2FZ1UtWpoZabkktSA29flFnyL8ZyInEzWx4yg5OMllXw7B0EQg%3D%3D',
+  'decisional.com': 'https://www.decisional.com/og-image.png',
+  'elkapi.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-f41630ef-967c-499a-9358-15b12f2538a3.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967162&Signature=hYLqI2SAwPMOruZoV5xejCdXeuVGlIT%2BYRPnkZct66Zh7GVSFk887tZlDSQsZP1DMoVDnuliPFu73Piy1ThDIbQoFRInv7v9eZCwQDuD0Gp8%2BKKnT5fx%2FQ6vIJK%2BKdO0Cuac2fp8A5MzhnMMfstBze2LCcA7NB2iiLgntVXeUrA0VC7k6U642274S9z%2BrVjPohJRvETNLC6FGh1r9mDHzLcttihwHJssXWGp4MuIU2mul6KXw%2BVI4t0fjxjN3%2FiRO7gSXcZXaaUZzgq5XI8uUsgbtgEKpHC1BQtdN8q5lPMQ8f6nZX9J1kZUTdrYZ3y29FsEqi4j6nmC9NUDUgbPVw%3D%3D',
+  'ellipsis.dev': 'https://framerusercontent.com/images/Q6lPOi4OnIz8gMN3lPkYEMItE20.png',
+  'embedder.com': 'https://embedder.com/og-image.png',
+  'everydev.ai': 'https://www.everydev.ai/api/og?variant=homepage&name=EveryDev.ai&description=With%20AI%2C%20Everyone%20is%20a%20Dev',
+  'exa.ai': 'https://exa.imgix.net/og-image.png/',
+  'fiber.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-863d8ffe-ce86-4ddf-97b8-37ac11c4a849.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967222&Signature=gKjqPU3d%2FPsS0AYzc2au780x2ZBfxnNFdIJ4UEpjhZ4J5jZad5E%2B0y%2Fmt8B3PCMyrcxnRhzE44Hn2JRCDcRp9fLj2IfY6PpTXxP1sTqvq9toBFjK5pIFNu02Khj342MBnF6XGHFqPUGGxf9kB47MAK5zQvo4LhpU1nnXSpKrQbmwT8AyMzZ%2Bi3WsFm1v09Nzl8QkkilfvkC8bmsqnbfAzK7ObksEw0C%2FJeVeGlg4FYDn9fmVpwUEiaB42O%2FIPCpKUWR5YB3RQdj%2FZhYx7QlbfqP%2FD9VWqyOuixyM8rfBnofFbCM7%2FC7M6Vzed93APcezrdGAofK99j103IgjlYIP5Q%3D%3D',
+  'firebender.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-03b747bb-0923-4906-912e-14c0e3270d16.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967255&Signature=loxSEYkEF%2BPhfTLF0405ZHF0mjkPahhRakinWnBP8kt79ORUqDsS36r3vniKhtSlTeSyxjPHOAaxkm9shNLyy6CmY7JUQFUaEFDYMuBQ3ngKhc2hTeUI0CTXiRQaZfO21OZBSXrI8t9Xrxi4%2FZBw6SmDr2CwxiNnBfGBHNr04OTOF%2BbnngNtkA6slObBscFisPMOJXOSOgJBWKIouImhn4jR%2BxX8BtXkadu49tCBBwxxQbKhNEtB1I%2Fnp%2BeRJT9y2%2B8ukT%2FdlBAHYdNtlV3EC1fTyGJTPR4VMxImCWcMiLDnnTUd5s6te20Df8sfU7Buf1z7CwFyFT5EFFbeDy5Gew%3D%3D',
+  'firecrawl.dev': 'https://www.firecrawl.dev/og.png',
+  'floot.com': 'https://floot.com/images/og_image_v3.png',
+  'flowiseai.com': 'https://remarkable-smakager-ddb2b7.netlify.app/opengraph-image.png?9ccfc0cd89ea0cda',
+  'getzep.com': 'https://www.getzep.com/og-image.png',
+  'gigamind.dev': 'https://gigamind.dev/og-image.jpg?v=2',
+  'giselles.ai': 'https://giselles.ai/og.jpg',
+  'greptile.com': 'https://www.greptile.com/opengraph/opengraph-image.webp',
+  'helicone.ai': 'https://www.helicone.ai/static/new-open-graph.png',
+  'appsidekit.com': 'https://www.google.com/s2/favicons?domain=appsidekit.com&sz=256',
+  'heyapi.dev': 'https://heyapi.dev/assets/.gen/openapi-ts-hero-640w.png',
+  'heylua.ai': 'https://heylua.ai/og-image.jpg',
+  'humanloop.com': 'https://humanloop.com/assets/acquisition/humanloop-anthropic-green-white@3x.png',
+  'hyperbrowser.ai': 'https://www.hyperbrowser.ai/og-image.png',
+  'hyperspell.com': 'https://hyperspell.com/banner.png',
+  'inconvo.com': 'https://inconvo.com/heronew.png',
+  'inspectorio.com': 'https://inspectorio.kinsta.cloud/wp-content/uploads/2024/02/Website_FeaturedImage-1536x864.png',
+  'kernel.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-5a5a32f7-dd59-49b1-9c0c-f035e5b2cc4c.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967312&Signature=I7kBUXtNsAkpaWGenLvYhpfQYsuEUQYAQNoIFaspj%2BpgqsQZJapiPzw%2FvX8h70PYf9DahUIITAQanVhwWxQOa5%2BaqED9e5ok3R7idTY3vWhMVLPOS2%2BM3qmBV8Mk%2FQL7wB2rjkfLqtlOX6F7o%2BwGknqNU%2BTBTW%2FGxvAWpunqsEhyotYEvcz30HGcASMtDxyRjgra%2B4WDQY4i5v6KlO30g09bW3CtSGQirEmw%2Bmv%2FJ0BZjU5PKWtWVKHa2doVGu9SP95F9iTVcd1F5yh1FLMXSQPDs%2F845vESK7PSbTAY83kQJfF%2B7eD%2FpsaOBzm%2FBXElfLQMqQibE3PqI%2FUO454AVQ%3D%3D',
+  'kinde.com': 'https://kinde.com/assets/images/open-graph/fully-integrated-developer-platform.png',
+  'klavis.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-ec10105c-5d72-4231-a08d-8b4dba83ccc3.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772966957&Signature=CaTnLrm7Qh70kSMuIokkdj98ODSvz1yXnhmGIypYqsJXRyJO5mrLm1STY%2FSC1d%2FId90W8%2ByKhhzxMwLCa93W1GxHaekYIuqsKHN33IF880rLHaxgV71aOhBzQejrcVMsJ%2FLksAfMm3vqYNgJ8BuJzD092s1nBkMY%2FY9GJqhhNEaknZQ15thYvXHP0HaSsrGlHD8%2B1R8rADSINx94n%2B0TQ9GbpEofLKTV7ISlrb5ujeZvy2D0ZzAIVsMtfhnwOpYSIy9Hi7hdzVrfvByzkqKPEbVojydK%2BZhV7w2SqFtKrBHfUuZRp0%2FGYPdAvDYYUKaX3qsUUwAUnWxZhziz3hsbqw%3D%3D',
+  'laminar.sh': 'https://laminar.sh/opengraph-image.png?opengraph-image.de8b7915.png',
+  'langfuse.com': 'https://langfuse.com/api/og?title=Langfuse%20-%20Open%20Source%20LLM%20Engineering%20Platform&description=Traces%2C%20evals%2C%20prompt%20management%20and%20metrics%20to%20debug%20and%20improve%20your%20LLM%20application.%20Integrates%20with%20Langchain%2C%20OpenAI%2C%20LlamaIndex%2C%20LiteLLM%2C%20and%20more.&section=',
+  'maven.com': 'https://d3fe4umbwqdrlj.cloudfront.net/global/Maven_SocialShare_2026.jpg',
+  'mem0.ai': 'https://framerusercontent.com/images/Mm4DtRfHMURyBy4FmfV4AFt7OQ.png',
+  'middleware.io': 'https://middleware.io/wp-content/uploads/2024/08/middleware-observability-thumbnail.png',
+  'mike.gg': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-7bac7292-5ec8-4101-999b-64cbbcec28a6.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967138&Signature=lQSS%2BE2hKt3k%2BizMhCs0dh31QNCsfKHMBePtvg1%2B73xMyhnZ%2BJbGzkr7qc%2BfbA5FQHNUpum166%2BZ%2BCR4yvmEsGFGAZaWJaR%2BJGdFE9XXVE0KGX5xg0pXJlCl66Cleyy24F3DhpitgicZzxVzW92kUk3bPiCP7wBl1pY4io%2BtA8CVWvcK2otnDizMnQu%2BIda14zGdjkhyLjIegnytVNzGZmfvAXaM4TEirsmhoQv%2FEqUxCGmX9DUTacLTkA%2FYICKuSwQZRfKe7pKaPSLA%2BPyC6Ch5FP2a2Aak7l1ChBX%2Bmn3XTlAI7FPbHKxQpscNCE8gGrnbb8dpVt7niy6%2FTPffGg%3D%3D',
+  'mychamberai.app': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-7d65abc0-9007-4403-b4af-3c2a891f4dc6.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967250&Signature=Ix%2BLgyGYET%2BgIhdEuKE9RV5zkipCQMwYH1NafFRBg7jMlwilWB0F1YWhlyVrVUGyoNiBTLrb%2Bc8mx81ht0Ht9nwodFEQtYeabtV%2B7YlSeJaDqK8xjoWw67cHPGmFRvevUBP6dkGs1CBRbdo11yQF0YPrDBBQFs%2FvLLd8Qco4o0ewCtAFMwdr0%2BWG1lScOhyIpCDt%2BJLT4yL9eBwnxvewqEo6ag9mtrdBntjFwCr6aQiawKgs35iQ7AWOeyA%2BOi1as%2B6aTLBIu6Gr10DlePslBnMUq2eiqU4x21qfnbMXRWqrGrCTYmaenv2tw2jyHd%2FT9hpf7Jm7UZcqjHFsjwzX8Q%3D%3D',
+  'myclone.is': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-89ab8044-977b-4ca1-8d9f-7a3400a04b96.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967309&Signature=DioN1TvEP7dSSo35sNsRkEWMP42rMTGwaUFtTFZcisDVC%2Ff1g%2FH5Mjv47OiiIuPhZHtCkKCjsuC9c3587P67eiXitL7lBMjPg%2Fqy%2FSKI42BpsHlyfl5k10RnxBIOHr%2FlxgiPx681%2Bi6wBz7OPgIu84TomdfOW7Y9G5wfdvNYdTnaGeTVWJFQKkiBweDU3kw8sZuaaJVzVTPiobqWQIGXsH3VRnfkcuLoHOpICjcURgSPXkGwkzl%2F5AV9Jr6YtR4Futi9BI8DwYg9PxXPnj5wBZ%2BuBBy5QIXAm3Qw2UejyBbn9l2AuZjDnLMbbIBLWwluh9Zn0SR6fUZeIFC2whahMA%3D%3D',
+  'openmemory.dev': 'https://framerusercontent.com/assets/Q5nPHIzd8QXHxbnfG0zROxAlP4U.png',
+  'orthogonal.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-865c831b-a5e8-493f-bf06-d012df37bbd9.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967161&Signature=aBb4D%2BllqoyMkoZyCIloYN5waR3RatfHbxCpeaiF3rfIIsmPoNrDCW8Pi1KGbm8nnzyo2RUgLe%2FwcioFMs7ALP5lDzscvVopUv64iDWyH8ua9tvFa3YkEzkjh8et4JK%2BVXyVkz8TvGWqSEshhd4qO79aEpb83S5zIgrY9jKUgMyyDEa4e%2FBT5OgqSBwaGA5BSlBFLb0j%2BmZHvbYrXBT8iz1%2BJmcBawMlxTltvD3y8mmoe%2B5trPzKVye2NZk8RlG1bXfK6pg53IAKtADRIN7C8hfcXCjGPgaKm7YVc3Fl9yem7o8WaUJDSRBTF%2B9bl5kjO6rcY1UOtJ7jaREbrj0z9Q%3D%3D',
+  'oversteer.dev': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-d5361553-96e2-4724-8316-5083c5da3768.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967188&Signature=NmL%2F%2BVknJqHsPc6dEoIn9%2B1JaplvkRWll5Vv9Xez6MPDKYlzyV4hIJ1pKsTsUIpHN5XE3ENGxDeeumfgcWxBF7ndtbiJ24NP9EmARhahxIKhKoGfOANRJSLK%2Bj3lioxurCLrjWSnhXoPuLWK7leCSnq8xWfWJt%2B2Tn%2FvQBX8HvtcjYfo%2FgNT7fZy8emwAsz6BIfh42DIusJdOUcAd0c9A85Iq0E%2BRGYbER6NJfAdAsfcsK0YpShAXyFIrKM%2BS32iFOhstRtqEvtzv%2F8Ls5NAQVfg4mCbVerFHKLAibOiA7OP%2FXKmFk9OVDFv0xkIaAl8vXN3ldGI3M42%2BCMdbe8hDw%3D%3D',
+  'pacy.dev': 'https://pacy.dev/opengraph-image.png?bcdb269dc5724640',
+  'parea.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-cd3ae6fc-078d-4c5e-ab1e-9c61227b5cae.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967028&Signature=StWtvOC0KtSLInQDgkSgVwsk5HVHbFjUavc%2BNaCmw4vdLrVJ4Say%2FixarmqS2XIXDIqsoxuB%2BNza23ndFfMcrUWOkO5jVZq2%2BfAHtr130vCzQAlce6KhQhprdDjDrMpyyUyQVkczgHKrbcXNlCnRrJuVKpUDzfME8r3PSzZllWVDp1SvgWxWEjTgsSLMeGjejSTfbyQAktj5RYR%2F2ExyD1cP2CGuvRGpygBsutydhUl%2BiRj4sf3xhEhAORFlGbkaO3cAqPCa%2Bgz3lgxfWlMTV6ImwmvWLHaq6Nb4kH47iyT9%2FsFxgcuKJ7OhCYNogVRkdfsftIOL1VKGdkdrZgbuVA%3D%3D',
+  'parse.bot': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-28b9d980-e32a-4bdf-81bc-5288c2f080cd.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967322&Signature=f9LfkzlRm9BOovB7kfGlOZ4sJbfq6v7Lwouq%2BZIYIRJ%2FIEqAsOWkPa2F3YXU0DinAAPS9ETfKMeiH614CzODu%2FN9o0uatayYimy37lsZUB7X%2B9JR%2Funi1yrmiJxxQIIwc6YHi%2BW%2Blx7kbfu4ngtEvXhwqQnYi3YTeavENoCnJTidOwA3oPQCXXznHIqdyNYIUXRgs8lqCYlS4v6VuidL17%2BCB712fo6mHcbYzBjnRh1%2BEWlcE8r2WY5aFIGxI1ZnF4msoCKvraUG3HUzPItfPnIl0ZuGDmlyBwXoZFsF5MZkXMN5mmirMFtx%2BYCPA7GFsAUj4SEF%2BH%2B%2Fpx8AYne4hQ%3D%3D',
+  'promptdc.com': 'https://promptdc.com/og-image-v2.png',
+  'querypie.com': 'https://www.querypie.com/api/og',
+  'recall.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-564bf7f1-7c05-46cf-93e0-d9a213eaaa7b.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967232&Signature=q%2BHsfU8Ys%2F%2FK2Kpdk09PWEC%2BdD4t8Aw2Qb9MfF5lZrPaN9lu%2FOzmeaowAt%2BagOUdlS5uc3i1rEKc4xfvHzD%2BFPWUGUFnqxcIFcvKsDlgW2P9ie%2FLtpbayyj4nKMhoB9UL4IRDITnrAg378O02ZvKRdGLDFwSXAjx1oz6OUdPjbFeVbHCQdQDbLTQnCeLjFNlVxaJgzBoUjoFJM7DMrIdyE4iD0pGxC2TcxWNWd3XbGPN7t2DOHNFr%2F%2F%2BzLMS0cmqtArI93TUsMAmizSYjpORB7tLZxx63slhxCCBP4%2Fp5muc04QL7U4s0AnBGUyDrsigJB1UmD2BqhpGzdJOY7ENkQ%3D%3D',
+  'reducto.ai': 'https://reducto.ai/opengraph-image-pztefn.png?dad257abe5b90369',
+  'retellai.com': 'https://cdn.prod.website-files.com/64ada0f2685b2d18caa5e699/6969444ef240182f4befc819_screenshot-20260115-113013.webp',
+  'reworkd.ai': 'https://reworkd.ai/banner.png',
+  'riveterhq.com': 'https://framerusercontent.com/images/oSI47zxpV7yf5N49KGFkKHzzbog.png',
+  'roark.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-a4a691c4-9b83-42e2-91b6-44e78532d292.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967204&Signature=Qpq41nnO62OmHIsHUAQtUVZVtnH75H0GYDS%2FjAqYWRa082uHmsL3j9pqNNwX1EhkNFksrbieOjK69qmsCSoI4K0YbHtu%2Bs4luk6VTo6cIQI5U2hCk5kQrbr4ivN4jNTwvnCIaYSWs4LvgD4tEesRRS5adLe%2Bdb%2BobzX3jVeRbO573HtAh%2BCYqQRgHwIHcWVy2JgBBWidynQcACi5MRuvgHQIKtmQ3JSMGT2UyZuW2j22A3lpyl2u8%2FpqmET3f41RTdMugbvzBhRPa%2FIMuf2jISLX96MG%2FhfcIpp35zbv26brmc9CwhEpgTw4hREDnbfQGWPPMj7pYyqC22kcE0l%2FDA%3D%3D',
+  'runcopycat.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-99672d5b-2da8-48b1-9371-7c61624966ee.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967019&Signature=oQIfSfkx4kgp1L828ECocreQwY5N0bIwTEjg4Sgbn30Z3O%2F439DxJ%2FcJiLlrES3KelxweEk%2BSmVTG57TDDs0h0YOugDpKBUm2OV05e2V3P8WtgewKzDGo77pnH9MS8iTEWtPYZ9z7fI8bW2FjZ3yzFyeYprH84ZwfNFlX%2BiQar8%2BImvy82392bS91JWFBeUpA7duGqUoi%2ByElSPKQEgyp1zs6L%2FZekLqYNdOaYJbT%2BhW9DpblHw5%2FG7U88ncx%2F7n24WqMTvF9qkP%2F24eFI%2BLtnfVljPv9kDjx26D1ZVi%2BUZ66MAP1rg%2FR9RAMGPTv8bsnLG8wB7Vw9OCa67lqBM5MA%3D%3D',
+  'sigmamind.ai': 'https://cdn.prod.website-files.com/67dd05e1aec9a2e8233774d1/692fd5e1413ff23aac782263_Finance.gif',
+  'skillsafe.ai': 'https://skillsafe.ai/og-image.png',
+  'superagent.sh': 'https://www.superagent.sh/api/og?title=Red%20Team%20Testing%20for%20AI%20Agents',
+  'sweep.dev': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-1991dc06-7876-430d-9228-3c7ff1a773e8.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772966951&Signature=RdGYJbJK9ZDncvUapUYM7q9rbz3DoDdzdWwFvzT8wvqBERDX39nL8VhNUessPzyhFGLwUjDzI0Eea5ti0Khvkqxf4xHyOaf8veCZ4dOnuVn4Ler29Qv8QaJivkcYhYfEA8adrPGJPCOz4FXC3nVoECmEwFo%2Ficxo2Q4FOgBZvTjuQfa39uVS7YTLqhNgpi8AEDPyfdtXuQOiTLrYiCmTj66%2B7fkpPTzFhA5W2m%2BkVIU82Rsd84MlI1xxmM8FNQj3QGmM5PoahltdV4QaeC4w08A0MNB5M6KUxTUDoYuG%2BvVCwi17mf2gR%2BDy8IiOU%2BqEU6EfTl0pLGZaR7rsU87qaA%3D%3D',
+  'tambo.co': 'https://tambo.co/opengraph-image.jpg?11260a68d402786d',
+  'tess.im': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-ae1ee933-d428-4188-b220-0dad8385e668.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967173&Signature=PbzwD32kXC5aN%2BAPGk5LGdLcZ0Xv%2BJgXJG305UDnz5x%2BqFLRjBFqM0J1LKs6gRcpN1HQe%2FIG1Sbk%2BA2JDeIUV4FJ775fHiLbMtAtg0ejf5ly%2F9hnK%2BK3S%2F1XPAZ4VFE1Yhzolam3zB%2BQUuzAMTqhokave1g3sZBv5i5lKynbaZa07PupbD8pgrd8qDO1Y1yQ2ecLyAdN2xQleTxvd%2FPnZH%2Bg9gW93OAe01S2%2FIPxlN9wo%2Bd%2FRLSXeG2EQ7s8jMseEjKzh6rXGYHoL%2BTuUdpCWZ7YLCHnIDtsYaOqryEL8M8bPZRDkViwEtfGolHTsQ4vD5Xr3YDtQDnZzr33cbI%2FfA%3D%3D',
+  'tessl.ai': 'https://cdn.sanity.io/images/ojuglg5y/production/fa12cfb35dd51f280b764adf7122a6c0f7911e12-2400x1260.png?w=1200&fit=max&auto=format',
+  'tessl.io': 'https://cdn.sanity.io/images/ojuglg5y/production/fa12cfb35dd51f280b764adf7122a6c0f7911e12-2400x1260.png?w=1200&fit=max&auto=format',
+  'theneo.io': 'https://cdn.prod.website-files.com/6618f6e1f5adf20e074c3a5b/68f73b644181070ffd1ebbdc_default.avif?auto=compress&cs=strip&auto=format&w=1069&h=640&fit=max&dpr=2',
+  'toolkit-cli.com': 'https://toolkit-cli.com/img/og-medusa.jpg',
+  'traceloop.com': 'https://cdn.prod.website-files.com/6813b49cdb25f6ecabc12793/6915acf131f6d9813bf464c8_traceloop-ograph.jpg',
+  'trykeet.com': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-707b4753-82d2-48b0-a5b2-02335365f702.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967346&Signature=RfE5VJdfLGeGhPgRYOId6iUe373cv4HWPyeQ%2BTbnK0hhn70xelkPEGgI1K4mitzsy4rve6oUM8lSs8x9qexmEmVSyw1GtdgK%2BOodf3Z8HnIhcY0G2tmh9bYVJxLUHCZSkK8smT1fXgnyLZg2qlJ%2FFkda1Hnj%2B7OkmKOM3LHx1e6OOkAafgeSd7e8poSGlz%2FbVUpVXWynfNBtrK%2BDotjzO9qLSl1IqNNNCulIVgR2TnPF0W1JW%2BFUSxwJ8Mz4weIwq2hRvfhV294G6ypN1SOzHJgHg%2F92QhoY0v1yfbb0MtYwP9kuDukpbdg3R%2FIuf%2FsIlXaMCXlvWlEpNJFDemBshA%3D%3D',
+  'tryterra.co': 'https://tryterra.co/terra.jpg',
+  'trytruffle.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-2feb785f-d4b1-4354-a8ff-f81dff141f99.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772967263&Signature=eRTMSsRJVOPsruqG0Pp15ryJUEvlv8mbW8mbpxPYsmR1FCPU2zDrmXOpiTIpf%2FaRdYjwCwLk%2FDo7N0%2FOnx0HJaelN8JXIUP%2FyjZSKQA%2B5Zh2INgyZBwRF90DdwLk%2FwwxwypZ2%2FZxcuc65iXZRwKLWvb2m6J5EXBnG6vGFzT7TGGniOfg%2F3I%2FPmwYWZDkZ7xY2wf6BIbBohm6PVT0vsh4EzTItXsdCuBNZ4m%2BhJjKZH3ISm%2FpXNEupy03gbvxHLGufqC%2BkKVs4xLV7eL6VGWgnEy4LPo0MsL%2BG7jXdPamcYx973frsjUyWFSq04Y4ZCYhiOdUgD9IfmAYDfYBNVJ2Vw%3D%3D',
+  'unsiloed.ai': 'https://storage.googleapis.com/firecrawl-scrape-media/screenshot-62144602-7630-49a0-8a6d-a6435a13f889.png?GoogleAccessId=scrape-bucket-accessor%40firecrawl.iam.gserviceaccount.com&Expires=1772966965&Signature=HoGzwF1M4%2BsSBibiw54pCM30nfBGJvt3NobNHy8STEyZrABEbQBHrctAxznr81AY0%2Bc7REu3WSswb7AwSrqUpPSg4HGDA8PWd6f%2BNylGH%2FHcqHyB3S%2FqQsM41P6IjwFS2wWNfruciGjQ8R79BKBLMo8BdHDx3E7M2KXZlbedASs%2BOQcQpOPI6Sg5ISEZ6An6B7fQD7b6TzW6%2BNYsWMz2lUiH28Dfu7Cs0YPZKup7sD%2FclMIaWDMC3tEvcMHrpNKRibGdPrwEEGHBLyUytkGoqXbKzMYOB3aFluTZ86%2FL3LjIDdZoSYdHP18GAJK0199FP1Kk2FHwfykZsUAsZgDfHA%3D%3D',
+  'usetusk.ai': 'https://storage.googleapis.com/use-tusk-dev-static/tusk-og-image-website-v4.png',
+  'vellum.ai': 'https://cdn.prod.website-files.com/63f416b32254e8eca5d8af54/68e815585c6e16181cb905cf_cover-home-page.jpg',
+  'veryfi.com': 'https://cdn.veryfi.com/wp-content/uploads/Veryfi-Logo-Navy-White-1200x675-1.png',
+  'cactuscompute.com': 'https://cactuscompute.com/opengraph-image?9df76a35fe8276e2',
+  'vybe.build': 'https://www.vybe.build/assets/vybe-og-image.png?v=2',
+  'waydev.co': 'https://waydev.co/wp-content/uploads/2020/12/Project-Timeline.png',
+  'withwoz.com': 'https://withwoz.com/woz-social-shareable.png',
+  'x.ai': 'https://x.ai/opengraph-image.png?6014284994b18e1d',
+  'zerogpt.org': 'https://zerogpt.org/og-image.png',
+};
+
+// ─── API DOCS ───
+const API_DOCS = {
+  'klavis.ai': { docs: 'https://docs.klavis.ai', desc: 'MCP infrastructure for AI. Sandboxed tool-use environments, 102+ integrations. Connect AI agents to any service via MCP protocol.' },
+  'sweep.dev': { docs: 'https://docs.sweep.dev', desc: 'AI coding assistant for JetBrains. Intelligent autocomplete, code generation, and AI agent with $5 API credits included.' },
+  'reducto.ai': { docs: 'https://docs.reducto.ai', desc: 'Document parsing API. Extract structured data from PDFs, Excel, PowerPoint. POST files to /parse endpoint with your API key.' },
+  'helicone.ai': { docs: 'https://docs.helicone.ai', desc: 'AI gateway & LLM observability. Proxy your OpenAI/Anthropic calls through Helicone to get logging, caching, and rate limiting.' },
+  'parea.ai': { docs: 'https://docs.parea.ai', desc: 'LLM experimentation & eval platform. Log prompts, run evals, deploy prompt versions. pip install parea-ai to get started.' },
+  'veryfi.com': { docs: 'https://docs.veryfi.com', desc: 'OCR API for receipts, invoices, bills. Extract line items, totals, dates from documents. REST API with client SDKs in Python/JS/Java.' },
+  'daily.co': { docs: 'https://docs.daily.co', api: 'https://api.daily.co/v1', desc: 'Video/audio API & Pipecat framework. Create rooms via REST API. Ultra low latency WebRTC infrastructure for voice AI agents.' },
+  'domeapi.io': { docs: 'https://domeapi.io', desc: 'Prediction markets API. Real-time and historical data from Polymarket, Kalshi, and other prediction markets.' },
+  'cactuscompute.com': { docs: 'https://www.cactuscompute.com', desc: 'On-device AI runtime. Run models on smartphones, laptops, edge hardware with automatic cloud fallback. Dashboard API keys.' },
+  'appsidekit.com': { docs: 'https://docs.appsidekit.com', desc: 'iOS growth toolkit. Analytics, version gating, feature flags via lightweight privacy-first SDK. Dashboard for configuration.' },
+};
+
+// ─── TOOLS (best products first — Klavis, Reducto, Helicone) ───
+const tools = [
+  { name: 'Klavis', domain: 'klavis.ai', url: 'https://klavis.ai', accountEmail: 'cutedirection243@agentmail.to', accountPassword: 'nRT!YI4Lq^r#Lk$os1', plan: 'Hobby', entitlements: 'MCP Servers, 102+ Integrations', apiKey: 'eJ05FGp4BZcVrE8tsLOzZUwPo/Bpm2CpFk3PO9zhLro=', apiKeyUrl: 'https://www.klavis.ai/home/sigma/api-keys' },
+  { name: 'Reducto', domain: 'reducto.ai', url: 'https://reducto.ai', accountEmail: 'brightsmile592@agentmail.to', accountPassword: 'wche52nXwQjxS*px6J', plan: 'NONE', entitlements: 'NONE', apiKey: '8160b912e19047635e68afa4b7d39a84ec8b2767fc86dc78c6b33cd17dc5954c3b1a38648f576791dcd38e994530ab34', apiKeyUrl: 'https://studio.reducto.ai/api-keys' },
+  { name: 'Helicone', domain: 'helicone.ai', url: 'https://helicone.ai', accountEmail: 'nervousmeal836@agentmail.to', accountPassword: 'AA##t5&x8EUI9ibgCY', plan: 'NONE', entitlements: 'NONE', apiKey: 'sk-helicone-rca6q5q-kobevzq-xmpnu3y-eyc6pzq', apiKeyUrl: 'https://us.helicone.ai/developer/keys' },
+  { name: 'Parea', domain: 'parea.ai', url: 'https://parea.ai', accountEmail: 'adventuroustrouble173@agentmail.to', accountPassword: 'F$2UWPc4KxETeTxXA^', plan: 'Free', entitlements: '3,000 logs/month, 10 deployed prompts', apiKey: 'pai-d65ee861e597675e0a5973f70fa3eb9c8bf16bee35f31eef6bdf7e00fe5a417b', apiKeyUrl: 'https://app.parea.ai/settings' },
+  { name: 'Veryfi', domain: 'veryfi.com', url: 'https://veryfi.com', accountEmail: 'oldperformance931@agentmail.to', accountPassword: 'a%14MF$ii3GhS%bU#M', plan: 'NONE', entitlements: 'NONE', apiKey: '990ea8e221830d2de54e3dd1def34619', apiKeyUrl: 'https://app.veryfi.com/api/settings/keys/' },
+  { name: 'DomeAPI', domain: 'domeapi.io', url: 'https://domeapi.io', accountEmail: 'wittyscience42@agentmail.to', accountPassword: '@xEGqM!nkd8sNio8Qp', plan: 'NONE', entitlements: 'NONE', apiKey: 'da32928fe28a352a191d308a93d07acbd6f18462', apiKeyUrl: 'https://dashboard.domeapi.io/' },
+  { name: 'Sweep', domain: 'sweep.dev', url: 'https://sweep.dev', accountEmail: 'mysteriousperformance188@agentmail.to', accountPassword: 'wXDhG8PO08hVuC@#To', plan: 'Free', entitlements: '1000 Autocomplete Suggestions, $5.00 Sweep API Credits', apiKey: 'JWT session token (auto-generated)', apiKeyUrl: 'https://app.sweep.dev/' },
+  { name: 'Cactus Compute', domain: 'cactuscompute.com', url: 'https://www.cactuscompute.com', accountEmail: 'mistysituation653@agentmail.to', accountPassword: '0vvrV&4D356XWt!O#z', plan: 'NONE', entitlements: 'NONE', apiKey: 'cactus_live_1b8e93a387cf4b5f4c49e5c15c109fcc', apiKeyUrl: 'https://www.cactuscompute.com/dashboard/api-keys' },
+  { name: 'AppSidekit', domain: 'appsidekit.com', url: 'https://appsidekit.com', accountEmail: 'gleamingattention317@agentmail.to', accountPassword: 'L#UjvdpX9w%73&*T^7', plan: 'NONE', entitlements: 'NONE', apiKey: 'aFMYdX23G4PtAi1q9CleS4abF0HdA8Q9', apiKeyUrl: 'https://appsidekit.com/dashboard' },
+  { name: 'Daily', domain: 'daily.co', url: 'https://daily.co', accountEmail: 'giftedhouse586@agentmail.to', accountPassword: '#N3TdezI4Sm^LEyoJq.', plan: 'NONE', entitlements: 'NONE', apiKey: null, apiKeyUrl: 'NONE' },
+].map(t => ({ ...t, desc: DESC[t.domain] || '', og: OG[t.domain] || '' }));
+
+// ─── AUTO TAGS ───
+function getTags(desc) {
+  if (!desc) return [];
+  const d = desc.toLowerCase();
+  const tags = [];
+  if (/voice|speech|transcri|call/.test(d)) tags.push('Voice');
+  if (/code review|coding agent|copilot|code faster|pull request|pr review/.test(d)) tags.push('Dev Tools');
+  if (/scrap|crawl|extract|ingest/.test(d)) tags.push('Scraping');
+  if (/\bagent/.test(d)) tags.push('AI Agents');
+  if (/\bapi\b/.test(d)) tags.push('API');
+  if (/secur|breach|detect|attack|pentest/.test(d)) tags.push('Security');
+  if (/automat|workflow|orchestrat/.test(d)) tags.push('Automation');
+  if (/monitor|observ|trace|eval|debug/.test(d)) tags.push('Observability');
+  if (/deploy|serverless|infra|cloud|gpu/.test(d)) tags.push('Infra');
+  if (/auth|identity|login|billing|permission/.test(d)) tags.push('Auth');
+  if (/search|data|database|crm/.test(d)) tags.push('Data');
+  if (/test/.test(d)) tags.push('Testing');
+  if (/memory|context/.test(d)) tags.push('Memory');
+  if (/document|docs|portal/.test(d)) tags.push('Docs');
+  if (/browser/.test(d)) tags.push('Browser');
+  if (/llm|model|gpt|claude|gemini/.test(d)) tags.push('LLM');
+  if (/open.source/.test(d)) tags.push('Open Source');
+  if (/no.code|without.code|no coding|visual/.test(d)) tags.push('No-Code');
+  if (/mobile|app store|android|ios/.test(d)) tags.push('Mobile');
+  if (/email|inbox/.test(d)) tags.push('Email');
+  if (/health|wearable|fitness/.test(d)) tags.push('Health');
+  if (/firmware|hardware|embedded/.test(d)) tags.push('Embedded');
+  if (/prompt|coding pattern/.test(d)) tags.push('Prompting');
+  if (/ocr|pdf|document|spreadsheet/.test(d)) tags.push('Document AI');
+  return [...new Set(tags)].slice(0, 4);
+}
+
+function getTld(domain) {
+  const ext = '.' + domain.split('.').pop();
+  return ['.ai','.dev','.com','.io'].includes(ext) ? ext : 'other';
+}
+
+function getTldKey(domain) {
+  const ext = domain.split('.').pop();
+  return ['ai','dev','com','io'].includes(ext) ? ext : 'other';
+}
+
+// ─── STATE ───
+let userEmail = '';
+let deck = [];
+let currentIdx = 0;
+let selected = [];
+let history = [];
+let isDragging = false;
+let startX = 0, deltaX = 0;
+const REQUIRED = 3;
+const THRESHOLD = 80;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function showPhase(id) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startSwiping() {
+  const input = document.getElementById('userEmail');
+  userEmail = input.value.trim();
+  if (!userEmail || !userEmail.includes('@')) {
+    input.style.borderColor = 'var(--red)';
+    input.focus();
+    setTimeout(() => input.style.borderColor = '', 1500);
+    return;
+  }
+  deck = [...tools];
+  currentIdx = 0;
+  selected = [];
+  history = [];
+  showPhase('swiper');
+  renderCards();
+  updateProgress();
+}
+
+// ─── CARDS ───
+function renderCards() {
+  const stack = document.getElementById('cardStack');
+  stack.innerHTML = '';
+  if (currentIdx >= deck.length) {
+    stack.innerHTML = '<div style="text-align:center;padding:4rem 2rem;"><div style="font-size:2rem;margin-bottom:0.5rem;">&#128075;</div><div style="font-size:16px;font-weight:700;margin-bottom:0.3rem;">That\'s all for now</div><div style="font-size:13px;color:var(--text3);">' + (selected.length < REQUIRED ? 'Pick ' + (REQUIRED - selected.length) + ' more to continue.' : '') + '</div></div>';
+    document.getElementById('swipeButtons').style.display = 'none';
+    return;
+  }
+  document.getElementById('swipeButtons').style.display = 'flex';
+  const count = Math.min(3, deck.length - currentIdx);
+  for (let i = count - 1; i >= 0; i--) {
+    const t = deck[currentIdx + i];
+    const card = document.createElement('div');
+    const tld = getTld(t.domain);
+    const tldKey = getTldKey(t.domain);
+    const tags = getTags(t.desc);
+    card.className = 'swipe-card' + (i === 1 ? ' behind-1' : i === 2 ? ' behind-2' : '');
+    const ogImg = t.og || '';
+    card.innerHTML = `
+      <div class="card-stamp like-stamp">TRY IT</div>
+      <div class="card-stamp nope-stamp">NOPE</div>
+      <div class="card-image">
+        ${ogImg
+          ? `<img src="${ogImg}" alt="${t.name}" onerror="this.remove(); this.parentElement.innerHTML='<div class=\\'card-image-placeholder\\' data-tld=\\'${tldKey}\\'>${t.name[0]}</div>'">`
+          : `<div class="card-image-placeholder" data-tld="${tldKey}">${t.name[0]}</div>`}
+      </div>
+      <div class="card-gradient"></div>
+      <div class="card-badge-row">
+        <div class="card-favicon-pill">
+          <img src="https://www.google.com/s2/favicons?domain=${t.domain}&sz=32" alt="" onerror="this.style.display='none'">
+          <span>${t.domain}</span>
+        </div>
+        <span class="card-tld" data-c="${tldKey}">${tld}</span>
+      </div>
+      <div class="card-info">
+        <div class="card-info-top">
+          <div class="card-name">${t.name}</div>
+        </div>
+        <div class="card-desc">${t.desc || t.domain}</div>
+        ${tags.length ? '<div class="card-tags">' + tags.map(tag => '<span class="card-tag">' + tag + '</span>').join('') + '</div>' : ''}
+      </div>
+    `;
+    if (i === 0) setupDrag(card);
+    stack.appendChild(card);
+  }
+}
+
+// ─── DRAG (velocity + grab-point rotation) ───
+let grabY = 0, lastMoveX = 0, lastMoveTime = 0, velocityX = 0;
+
+function setupDrag(card) {
+  const cardRect = () => card.getBoundingClientRect();
+
+  const onStart = (x, y) => {
+    isDragging = true;
+    startX = x;
+    deltaX = 0;
+    velocityX = 0;
+    lastMoveX = x;
+    lastMoveTime = performance.now();
+    const r = cardRect();
+    grabY = (y - r.top) / r.height; // 0=top, 1=bottom
+    card.style.transition = 'none';
+  };
+
+  const onMove = (x) => {
+    if (!isDragging) return;
+    deltaX = x - startX;
+    const now = performance.now();
+    const dt = now - lastMoveTime;
+    if (dt > 0) velocityX = (x - lastMoveX) / dt; // px/ms
+    lastMoveX = x;
+    lastMoveTime = now;
+
+    // Grab-point rotation: grab top = more rotation, grab bottom = less
+    const rotFactor = 0.04 + (1 - grabY) * 0.06; // 0.04-0.10
+    const rot = deltaX * rotFactor;
+    card.style.transform = `translateX(${deltaX}px) rotate(${rot}deg)`;
+
+    const pct = Math.min(1, Math.abs(deltaX) / THRESHOLD);
+    const likeStamp = card.querySelector('.card-stamp.like-stamp');
+    const nopeStamp = card.querySelector('.card-stamp.nope-stamp');
+    likeStamp.style.opacity = deltaX > 0 ? pct : 0;
+    nopeStamp.style.opacity = deltaX < 0 ? pct : 0;
+
+    if (deltaX > 0) card.style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), 0 0 ${40 * pct}px rgba(0,212,170,${0.2 * pct})`;
+    else if (deltaX < 0) card.style.boxShadow = `0 8px 40px rgba(0,0,0,0.5), 0 0 ${30 * pct}px rgba(204,68,68,${0.15 * pct})`;
+    else card.style.boxShadow = '0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)';
+  };
+
+  const onEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    // Velocity-based: fast flick counts even if distance is short
+    const velThreshold = Math.abs(velocityX) > 0.6;
+    const distThreshold = Math.abs(deltaX) > THRESHOLD;
+
+    if (distThreshold || velThreshold) {
+      doSwipe(deltaX > 0 ? 'right' : 'left');
+    } else {
+      // Spring-back with overshoot
+      card.style.transition = 'transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease';
+      card.style.transform = '';
+      card.style.boxShadow = '0 8px 40px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)';
+      card.querySelector('.card-stamp.like-stamp').style.opacity = 0;
+      card.querySelector('.card-stamp.nope-stamp').style.opacity = 0;
+    }
+  };
+
+  card.addEventListener('mousedown', e => { e.preventDefault(); onStart(e.clientX, e.clientY); });
+  window.addEventListener('mousemove', e => onMove(e.clientX));
+  window.addEventListener('mouseup', onEnd);
+  card.addEventListener('touchstart', e => onStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  card.addEventListener('touchmove', e => onMove(e.touches[0].clientX), { passive: true });
+  card.addEventListener('touchend', onEnd);
+}
+
+function doSwipe(dir) {
+  const stack = document.getElementById('cardStack');
+  const card = stack.querySelector('.swipe-card:not(.behind-1):not(.behind-2)');
+  if (!card) return;
+  const tool = deck[currentIdx];
+  const speed = Math.min(0.3, Math.max(0.15, 0.35 - Math.abs(velocityX) * 0.15));
+  const flyX = dir === 'right' ? 800 : -800;
+  const rot = flyX * (0.03 + (1 - grabY) * 0.03);
+  card.style.transition = `transform ${speed}s cubic-bezier(0.16,1,0.3,1), opacity ${speed}s ease`;
+  card.style.transform = `translateX(${flyX}px) rotate(${rot}deg)`;
+  card.style.opacity = '0';
+  // Flash stamp to full
+  const stamp = card.querySelector(dir === 'right' ? '.card-stamp.like-stamp' : '.card-stamp.nope-stamp');
+  if (stamp) stamp.style.opacity = '1';
+
+  if (dir === 'right') {
+    selected.push(tool);
+    spawnParticles();
+    showToast(`Added ${tool.name} to your stack`);
+  }
+
+  history.push({ index: currentIdx, dir, tool });
+  currentIdx++;
+  document.getElementById('undoBtn').style.visibility = 'visible';
+
+  setTimeout(() => {
+    updateProgress();
+    if (selected.length >= REQUIRED) startCreating();
+    else renderCards();
+  }, 280);
+}
+
+// ─── PARTICLES ───
+function spawnParticles() {
+  const colors = ['#00d4aa', '#c8a64e', '#e4c15a', '#8a7033', '#e4e2df'];
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = cx + 'px';
+    p.style.top = cy + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.width = (3 + Math.random() * 5) + 'px';
+    p.style.height = p.style.width;
+    document.body.appendChild(p);
+    const angle = (Math.PI * 2 / 18) * i + Math.random() * 0.5;
+    const dist = 80 + Math.random() * 120;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    p.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) scale(0)`, opacity: 0 }
+    ], { duration: 500 + Math.random() * 300, easing: 'cubic-bezier(0.16,1,0.3,1)' }).onfinish = () => p.remove();
+  }
+  // Ripple
+  const r = document.createElement('div');
+  r.className = 'swipe-ripple';
+  r.style.left = cx + 'px';
+  r.style.top = cy + 'px';
+  document.body.appendChild(r);
+  setTimeout(() => r.remove(), 600);
+}
+
+function undoSwipe() {
+  if (!history.length) return;
+  const last = history.pop();
+  currentIdx = last.index;
+  if (last.dir === 'right') selected = selected.filter(t => t !== last.tool);
+  if (!history.length) document.getElementById('undoBtn').style.visibility = 'hidden';
+  updateProgress();
+  renderCards();
+}
+
+function updateProgress() {
+  const dots = document.querySelectorAll('.progress-dot');
+  dots.forEach((d, i) => {
+    const wasFilled = d.classList.contains('filled');
+    d.classList.toggle('filled', i < selected.length);
+    if (i < selected.length && !wasFilled) { d.classList.add('bounce'); setTimeout(() => d.classList.remove('bounce'), 600); }
+  });
+  document.getElementById('progressLabel').textContent = `${selected.length} / ${REQUIRED}`;
+  const sub = document.getElementById('swiperSubtitle');
+  if (selected.length === 0) sub.textContent = 'Swipe right on tools you want to try';
+  else if (selected.length === 1) sub.textContent = 'Nice pick! 2 more to go';
+  else if (selected.length === 2) sub.textContent = 'One more and we set you up';
+}
+
+// ─── NO FAKE LOADING — INSTANT RESULTS ───
+function startCreating() {
+  showResults();
+}
+
+function showResults() {
+  showPhase('results');
+  const container = document.getElementById('resultCards');
+  container.innerHTML = '';
+  selected.forEach((tool, i) => {
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    const docs = API_DOCS[tool.domain] || {};
+    const docsUrl = docs.docs || '';
+    const docsDesc = docs.desc || '';
+    card.innerHTML = `
+      <div class="result-top">
+        <img class="result-icon" src="https://www.google.com/s2/favicons?domain=${tool.domain}&sz=64" alt="" onerror="this.style.display='none'">
+        <div>
+          <div class="result-name">${tool.name}</div>
+          <div class="result-domain">${tool.domain}</div>
+        </div>
+        <div class="result-badge">Ready</div>
+      </div>
+      <div class="result-details">
+        <div class="result-row"><span class="result-label">Account</span><span class="result-value">${tool.accountEmail || userEmail}</span></div>
+        <div class="result-row"><span class="result-label">Password</span><span class="result-value">${tool.accountPassword || 'NONE'}</span></div>
+        <div class="result-row"><span class="result-label">Plan</span><span class="result-value ${tool.plan && tool.plan !== 'NONE' ? 'gold' : ''}">${tool.plan || 'NONE'}</span></div>
+        <div class="result-row"><span class="result-label">API Key</span><span class="result-value" style="${tool.apiKey && tool.apiKey !== 'NONE' ? 'color:var(--gold-bright)' : ''}">${tool.apiKey || 'NONE'}</span></div>
+        ${tool.entitlements && tool.entitlements !== 'NONE' ? `<div class="result-row"><span class="result-label">Entitlements</span><span class="result-value">${tool.entitlements}</span></div>` : ''}
+      </div>
+      ${docsDesc ? `<div class="result-api-desc">${docsDesc}</div>` : ''}
+      ${docsUrl ? `<div class="result-docs-url"><span class="result-label">Docs</span><span class="result-value">${docsUrl}</span></div>` : ''}
+      <div class="result-actions">
+        <a href="${tool.url}" target="_blank" rel="noopener" class="result-btn">Open ${tool.name} &rarr;</a>
+        ${tool.apiKeyUrl && tool.apiKeyUrl !== 'NONE'
+          ? `<a href="${tool.apiKeyUrl}" target="_blank" rel="noopener" class="result-btn">Get API Key &rarr;</a>`
+          : ''}
+        ${docsUrl
+          ? `<a href="${docsUrl}" target="_blank" rel="noopener" class="result-btn">Read Docs &rarr;</a>`
+          : ''}
+      </div>
+    `;
+    container.appendChild(card);
+    setTimeout(() => card.classList.add('visible'), 100 + i * 150);
+  });
+}
+
+function goBackToSwipe() { selected = []; showPhase('swiper'); updateProgress(); renderCards(); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('swiper').classList.contains('active')) return;
+  if (e.key === 'ArrowLeft') doSwipe('left');
+  else if (e.key === 'ArrowRight') doSwipe('right');
+  else if (e.key === 'z' && (e.ctrlKey || e.metaKey)) undoSwipe();
+});
+</script>
+</body>
+</html>
