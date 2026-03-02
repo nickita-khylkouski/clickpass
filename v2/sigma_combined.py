@@ -48,6 +48,17 @@ from pydantic import BaseModel, ConfigDict
 
 load_dotenv()
 
+# ── browser-use event bus timeouts ──
+# Auth0 and heavy SPAs can stall the DOMWatchdog for >30s during redirects.
+# Increase key timeouts so the agent survives post-login navigation.
+_BU_TIMEOUT_OVERRIDES = {
+    "TIMEOUT_BrowserStateRequestEvent": "60",   # default 30 → 60
+    "TIMEOUT_NavigationCompleteEvent": "60",     # default 30 → 60
+    "TIMEOUT_NavigateToUrlEvent": "45",          # default 30 → 45
+}
+for _k, _v in _BU_TIMEOUT_OVERRIDES.items():
+    os.environ.setdefault(_k, _v)
+
 BROWSER_USE_API_KEY = os.environ.get("BROWSER_USE_API_KEY", "")
 AGENTMAIL_API_KEY = os.environ.get("AGENTMAIL_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
