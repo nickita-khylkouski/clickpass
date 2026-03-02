@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
-"""Sigma v3: reverse-engineer any signup page, then sign up reliably.
+"""Sigma Combined: fastest automated signup + verification + API key extraction.
 
-Three execution tiers:
-  Tier 1 — DETERMINISTIC: Firecrawl recon + Playwright DOM inspection → JS form fill.
-           No LLM. Fast, reliable, never clicks the wrong button.
-  Tier 2 — AGENT-ASSISTED: browser-use agent with profile-informed prompts.
-           Knows the signup URL, form fields, auth provider, CAPTCHA type.
-  Tier 3 — BLIND DISCOVERY: generic agent prompt (current behavior).
-           Captures everything for next time (selectors, URLs, flow).
-
-Each run feeds back into a cached SiteProfile so subsequent runs use a higher tier.
+Merges the best of v2/signup.py (magic-link login, native browser_use LLM,
+clean architecture) with codex_super/signup_super.py (robust error recovery,
+scored link ranking, EventBus stall detection, API key sanitization, late
+verification recovery).
 
 Design:
-- Local Playwright browser by default (no cloud crash limit, residential IP).
-- Cloud browser as fallback (--cloud flag or automatic on local failure).
-- Firecrawl pre-recon builds site intelligence before touching a browser.
-- HAR capture during signup for deeper site analysis.
-- Sensitive data redaction via browser-use sensitive_data map.
+- One file, one flow, maximum speed.
+- Parallel setup, low waits, aggressive multi-action steps.
+- Reliable: retry transients, rebuild browser on stalls, graceful fallbacks.
+- Magic-link login with programmatic navigation (no LLM URL hallucination).
 """
 
 from __future__ import annotations
@@ -28,12 +22,11 @@ import html
 import inspect
 import json
 import os
-import pathlib
 import re
 import secrets
 import string
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
@@ -51,8 +44,6 @@ load_dotenv()
 BROWSER_USE_API_KEY = os.environ.get("BROWSER_USE_API_KEY", "")
 AGENTMAIL_API_KEY = os.environ.get("AGENTMAIL_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY", "")
-FIRECRAWL_BASE = "https://api.firecrawl.dev/v1"
 
 MODEL_PRESETS = {
     "best": "gpt-5.2",
@@ -106,68 +97,6 @@ class RunResult:
     success: bool
     steps: int
     error: str | None = None
-
-
-@dataclass
-class FormField:
-    selector: str
-    field_type: str
-    name: str | None = None
-    label: str | None = None
-    placeholder: str | None = None
-    required: bool = False
-    identity_key: str | None = None  # maps to Identity attr: email, password, first_name, etc.
-
-
-@dataclass
-class SiteProfile:
-    domain: str
-    signup_url: str | None = None
-    login_url: str | None = None
-    api_key_url: str | None = None
-    auth_provider: str | None = None
-    form_fields: list[FormField] = field(default_factory=list)
-    submit_selector: str | None = None
-    captcha_type: str | None = None
-    oauth_options: list[str] = field(default_factory=list)
-    verification_method: str | None = None
-    requires_credit_card: bool = False
-    notes: list[str] = field(default_factory=list)
-    confidence: float = 0.0
-    success_count: int = 0
-    failure_count: int = 0
-    last_updated: float = 0.0
-    har_path: str | None = None
-
-
-# ── Profile storage ──────────────────────────────────────────────────
-
-
-def _profile_dir(custom: str | None = None) -> pathlib.Path:
-    d = pathlib.Path(custom) if custom else pathlib.Path.home() / ".sigma" / "profiles"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
-def load_profile(domain: str, profile_dir: str | None = None) -> SiteProfile | None:
-    p = _profile_dir(profile_dir) / f"{domain}.json"
-    if not p.exists():
-        return None
-    try:
-        data = json.loads(p.read_text())
-        fields = [FormField(**f) for f in data.pop("form_fields", [])]
-        return SiteProfile(form_fields=fields, **data)
-    except Exception as e:
-        log("profile", f"Failed to load profile for {domain}: {e}")
-        return None
-
-
-def save_profile(profile: SiteProfile, profile_dir: str | None = None) -> None:
-    profile.last_updated = time.time()
-    p = _profile_dir(profile_dir) / f"{profile.domain}.json"
-    data = asdict(profile)
-    p.write_text(json.dumps(data, indent=2))
-    log("profile", f"Saved profile → {p}")
 
 
 # ── Utilities ─────────────────────────────────────────────────────────
@@ -387,31 +316,7 @@ def _needs_browser_rebuild(err: str | None) -> bool:
 # ── Browser management ────────────────────────────────────────────────
 
 
-async def create_local_browser(
-    *, headless: bool = True,
-    har_path: str | pathlib.Path | None = None,
-) -> Browser:
-    """Create a local Playwright browser. More reliable than cloud — no crash limit, residential IP."""
-    kwargs: dict[str, Any] = dict(
-        use_cloud=False,
-        keep_alive=True,
-        headless=headless,
-        minimum_wait_page_load_time=0.5,
-        wait_between_actions=0.3,
-        highlight_elements=False,
-        captcha_solver=True,
-    )
-    if har_path:
-        kwargs["record_har_path"] = str(har_path)
-        kwargs["record_har_content"] = "embed"
-        kwargs["record_har_mode"] = "full"
-    return Browser(**kwargs)
-
-
-async def create_cloud_browser(
-    profile_id: str | None = None,
-    har_path: str | pathlib.Path | None = None,
-) -> Browser:
+async def create_cloud_browser(profile_id: str | None = None) -> Browser:
     if not BROWSER_USE_API_KEY:
         raise RuntimeError("Missing BROWSER_USE_API_KEY")
     kwargs: dict[str, Any] = dict(
@@ -425,10 +330,6 @@ async def create_cloud_browser(
     )
     if profile_id:
         kwargs["profile_id"] = profile_id
-    if har_path:
-        kwargs["record_har_path"] = str(har_path)
-        kwargs["record_har_content"] = "embed"
-        kwargs["record_har_mode"] = "full"
     return Browser(**kwargs)
 
 
@@ -593,493 +494,6 @@ async def watch_for_verification(
             log("verify", "Polling inbox...")
         await asyncio.sleep(poll_s)
     return VerificationCandidate(link=None, code=None, subject=None)
-
-
-# ── Firecrawl recon ───────────────────────────────────────────────────
-
-
-_SIGNUP_LINK_PATTERNS = re.compile(
-    r"sign\s*up|register|create\s*account|get\s*started|start\s*free|try\s*free|free\s*trial",
-    re.IGNORECASE,
-)
-_SIGNUP_PATH_FALLBACKS = [
-    "/signup", "/sign-up", "/register", "/auth/signup", "/auth/register",
-    "/create-account", "/get-started", "/join",
-]
-_AUTH_PROVIDER_PATTERNS = {
-    "auth0": re.compile(r"auth0\.com|auth0-js|lock\.min\.js", re.IGNORECASE),
-    "clerk": re.compile(r"clerk\.com|clerk\.browser|@clerk/", re.IGNORECASE),
-    "cognito": re.compile(r"cognito-idp|amazoncognito|aws-amplify.*auth", re.IGNORECASE),
-    "firebase": re.compile(r"firebaseapp\.com|firebase\.auth|firebase/auth", re.IGNORECASE),
-    "supabase": re.compile(r"supabase\.co|supabase-js|@supabase/auth", re.IGNORECASE),
-}
-_CAPTCHA_PATTERNS = {
-    "turnstile": re.compile(r"cf-turnstile|challenges\.cloudflare\.com/turnstile", re.IGNORECASE),
-    "recaptcha": re.compile(r"g-recaptcha|google\.com/recaptcha", re.IGNORECASE),
-    "hcaptcha": re.compile(r"h-captcha|hcaptcha\.com", re.IGNORECASE),
-}
-
-
-async def _firecrawl_scrape(url: str, timeout: int = 15) -> dict | None:
-    """Scrape a URL with Firecrawl, returning markdown + rawHtml."""
-    if not FIRECRAWL_API_KEY:
-        return None
-    try:
-        async with httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {FIRECRAWL_API_KEY}"},
-            timeout=timeout,
-        ) as client:
-            resp = await client.post(
-                f"{FIRECRAWL_BASE}/scrape",
-                json={"url": url, "formats": ["markdown", "rawHtml"], "onlyMainContent": False, "timeout": 12000},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                if data.get("success"):
-                    return data.get("data", {})
-    except Exception as e:
-        log("recon", f"Firecrawl error for {url}: {e}")
-    return None
-
-
-def _find_signup_url(markdown: str, raw_html: str, base_url: str) -> str | None:
-    """Find the signup page URL from markdown links and HTML."""
-    parsed_base = urlparse(base_url)
-    base_host = parsed_base.netloc.lower()
-
-    # Search markdown for signup links (href text)
-    for m in re.finditer(r"\[([^\]]*)\]\(([^)]+)\)", markdown):
-        link_text, href = m.group(1), m.group(2)
-        if _SIGNUP_LINK_PATTERNS.search(link_text) or _SIGNUP_LINK_PATTERNS.search(href):
-            if href.startswith("/"):
-                return f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
-            if href.startswith("http"):
-                return href
-
-    # Search HTML for signup links
-    for m in re.finditer(r'href=["\']([^"\']+)["\'][^>]*>([^<]*)', raw_html, re.IGNORECASE):
-        href, text = m.group(1), m.group(2)
-        if _SIGNUP_LINK_PATTERNS.search(text) or _SIGNUP_LINK_PATTERNS.search(href):
-            if href.startswith("/"):
-                return f"{parsed_base.scheme}://{parsed_base.netloc}{href}"
-            if href.startswith("http"):
-                return href
-
-    # Fallback: try common signup paths
-    return None
-
-
-def _detect_auth_provider(raw_html: str) -> str | None:
-    for name, pattern in _AUTH_PROVIDER_PATTERNS.items():
-        if pattern.search(raw_html):
-            return name
-    return None
-
-
-def _detect_captcha(raw_html: str) -> str | None:
-    for name, pattern in _CAPTCHA_PATTERNS.items():
-        if pattern.search(raw_html):
-            return name
-    return None
-
-
-def _detect_oauth(raw_html: str, markdown: str) -> list[str]:
-    combined = (raw_html + " " + markdown).lower()
-    options = []
-    if "google" in combined and any(k in combined for k in ("sign in with google", "continue with google", "google oauth", "accounts.google.com")):
-        options.append("google")
-    if "github" in combined and any(k in combined for k in ("sign in with github", "continue with github", "github.com/login/oauth")):
-        options.append("github")
-    if any(k in combined for k in ("sign in with sso", "single sign-on", "saml", "enterprise sso")):
-        options.append("sso")
-    return options
-
-
-def _extract_form_fields_from_html(raw_html: str) -> list[FormField]:
-    """Extract form input fields from raw HTML."""
-    fields: list[FormField] = []
-    # Find inputs, selects, textareas
-    for m in re.finditer(
-        r'<(input|select|textarea)\b([^>]*)/?>', raw_html, re.IGNORECASE | re.DOTALL
-    ):
-        tag = m.group(1).lower()
-        attrs_str = m.group(2)
-
-        def attr(name: str) -> str | None:
-            am = re.search(rf'{name}=["\']([^"\']*)["\']', attrs_str, re.IGNORECASE)
-            return am.group(1) if am else None
-
-        input_type = (attr("type") or ("text" if tag == "input" else tag)).lower()
-        # Skip hidden, submit, button, csrf tokens
-        if input_type in ("hidden", "submit", "button", "image", "reset"):
-            continue
-        name = attr("name")
-        input_id = attr("id")
-        placeholder = attr("placeholder")
-        aria_label = attr("aria-label")
-        required = "required" in attrs_str.lower()
-
-        # Build selector
-        if input_id:
-            selector = f"#{input_id}"
-        elif name:
-            selector = f'{tag}[name="{name}"]'
-        else:
-            continue  # Can't target this field
-
-        # Try to find associated label
-        label_text = None
-        if input_id:
-            lm = re.search(
-                rf'<label[^>]*for=["\']?{re.escape(input_id)}["\']?[^>]*>([^<]+)',
-                raw_html, re.IGNORECASE,
-            )
-            if lm:
-                label_text = lm.group(1).strip()
-
-        fields.append(FormField(
-            selector=selector,
-            field_type=input_type,
-            name=name,
-            label=label_text or aria_label,
-            placeholder=placeholder,
-            required=required,
-            identity_key=_guess_identity_key(name, input_type, placeholder, label_text or aria_label),
-        ))
-    return fields
-
-
-def _guess_identity_key(
-    name: str | None, field_type: str, placeholder: str | None, label: str | None,
-) -> str | None:
-    """Map a form field to an Identity attribute using heuristics."""
-    blob = " ".join(s.lower() for s in (name or "", field_type, placeholder or "", label or "") if s)
-    if not blob.strip():
-        return None
-
-    if field_type == "email" or "email" in blob:
-        return "email"
-    if field_type == "password" or "password" in blob:
-        return "password"
-    if any(k in blob for k in ("first_name", "firstname", "first name", "fname", "given")):
-        return "first_name"
-    if any(k in blob for k in ("last_name", "lastname", "last name", "lname", "surname", "family")):
-        return "last_name"
-    if any(k in blob for k in ("fullname", "full_name", "full name", "your name")):
-        return "first_name"  # We'll concatenate first+last in the fill logic
-    if any(k in blob for k in ("user", "username", "login", "handle", "nickname")):
-        return "username"
-    if field_type == "tel" or any(k in blob for k in ("phone", "mobile", "tel")):
-        return "phone"
-    if any(k in blob for k in ("company", "org", "organization", "business")):
-        return "company"
-    if any(k in blob for k in ("website", "url", "homepage")):
-        return "website"
-    if any(k in blob for k in ("dob", "birth", "birthday")):
-        return "dob"
-    if field_type == "checkbox":
-        if any(k in blob for k in ("terms", "agree", "accept", "tos", "privacy", "consent")):
-            return "_tos_checkbox"
-        return None
-    return None
-
-
-async def recon_site(url: str) -> SiteProfile:
-    """Firecrawl-powered recon: scrape homepage + signup page, build SiteProfile."""
-    domain = _base_domain(url)
-    log("recon", f"Scanning {domain}...")
-
-    profile = SiteProfile(domain=domain)
-    parsed = urlparse(url)
-
-    # 1. Scrape homepage
-    home_data = await _firecrawl_scrape(url)
-    if not home_data:
-        log("recon", "Firecrawl unavailable or failed; returning minimal profile")
-        return profile
-
-    md = home_data.get("markdown", "")
-    raw = home_data.get("rawHtml", "")
-    log("recon", f"Homepage scraped: {len(md)} chars markdown, {len(raw)} chars HTML")
-
-    # 2. Find signup URL
-    signup_url = _find_signup_url(md, raw, url)
-    if not signup_url:
-        # Try common fallback paths
-        for path in _SIGNUP_PATH_FALLBACKS:
-            test_url = f"{parsed.scheme}://{parsed.netloc}{path}"
-            test_data = await _firecrawl_scrape(test_url, timeout=10)
-            if test_data and len(test_data.get("rawHtml", "")) > 500:
-                signup_url = test_url
-                raw = test_data.get("rawHtml", "")
-                md = test_data.get("markdown", "")
-                log("recon", f"Found signup at fallback path: {path}")
-                break
-    if signup_url:
-        profile.signup_url = signup_url
-        log("recon", f"Signup URL: {signup_url}")
-
-    # 3. Scrape signup page (if different from homepage)
-    if signup_url and signup_url.rstrip("/") != url.rstrip("/"):
-        signup_data = await _firecrawl_scrape(signup_url)
-        if signup_data:
-            raw = signup_data.get("rawHtml", raw)
-            md = signup_data.get("markdown", md)
-            log("recon", f"Signup page scraped: {len(raw)} chars HTML")
-
-    # 4. Analyze
-    profile.auth_provider = _detect_auth_provider(raw)
-    profile.captcha_type = _detect_captcha(raw)
-    profile.oauth_options = _detect_oauth(raw, md)
-    profile.form_fields = _extract_form_fields_from_html(raw)
-
-    mapped = [f for f in profile.form_fields if f.identity_key]
-    log("recon", f"Auth={profile.auth_provider} CAPTCHA={profile.captcha_type} "
-                  f"OAuth={profile.oauth_options} Fields={len(profile.form_fields)} "
-                  f"({len(mapped)} mapped)")
-
-    return profile
-
-
-# ── Live DOM inspection + deterministic fill ─────────────────────────
-
-_DOM_INSPECT_JS = """() => {
-    const results = [];
-    const els = document.querySelectorAll('input, select, textarea');
-    for (const el of els) {
-        const tag = el.tagName.toLowerCase();
-        const type = (el.type || (tag === 'input' ? 'text' : tag)).toLowerCase();
-        if (['hidden', 'submit', 'button', 'image', 'reset'].includes(type)) continue;
-        if (el.offsetParent === null && type !== 'checkbox') continue;  // skip invisible
-
-        const id = el.id;
-        const name = el.name;
-        if (!id && !name) continue;
-
-        const selector = id ? '#' + CSS.escape(id) : tag + '[name="' + CSS.escape(name) + '"]';
-
-        let label = null;
-        if (id) {
-            const lbl = document.querySelector('label[for="' + CSS.escape(id) + '"]');
-            if (lbl) label = lbl.textContent.trim();
-        }
-        if (!label) label = el.getAttribute('aria-label') || null;
-        if (!label && el.parentElement && el.parentElement.tagName === 'LABEL') {
-            label = el.parentElement.textContent.trim();
-        }
-
-        results.push({
-            selector: selector,
-            field_type: type,
-            name: name || null,
-            label: label,
-            placeholder: el.placeholder || null,
-            required: el.required || el.getAttribute('aria-required') === 'true'
-        });
-    }
-
-    // Find submit button
-    let submit = null;
-    const buttons = document.querySelectorAll('button[type="submit"], input[type="submit"]');
-    if (buttons.length > 0) {
-        const btn = buttons[0];
-        if (btn.id) submit = '#' + CSS.escape(btn.id);
-        else if (btn.name) submit = 'button[name="' + CSS.escape(btn.name) + '"]';
-        else submit = 'button[type="submit"]';
-    }
-    if (!submit) {
-        // Try any button that looks like signup/submit
-        for (const btn of document.querySelectorAll('button')) {
-            const txt = (btn.textContent || '').toLowerCase();
-            if (/sign.?up|register|create|submit|get.?started|continue|next/.test(txt)) {
-                if (btn.id) submit = '#' + CSS.escape(btn.id);
-                else submit = null;  // can't reliably select
-                break;
-            }
-        }
-    }
-
-    return { fields: results, submit_selector: submit };
-}"""
-
-
-async def inspect_signup_form(page: Any) -> tuple[list[FormField], str | None]:
-    """Run JS in the live page to extract exact form fields + submit button."""
-    try:
-        result = await page.evaluate(_DOM_INSPECT_JS)
-    except Exception as e:
-        log("inspect", f"DOM inspection failed: {e}")
-        return [], None
-
-    fields = []
-    for f in result.get("fields", []):
-        fields.append(FormField(
-            selector=f["selector"],
-            field_type=f["field_type"],
-            name=f.get("name"),
-            label=f.get("label"),
-            placeholder=f.get("placeholder"),
-            required=f.get("required", False),
-            identity_key=_guess_identity_key(
-                f.get("name"), f["field_type"], f.get("placeholder"), f.get("label"),
-            ),
-        ))
-
-    submit = result.get("submit_selector")
-    mapped = [f for f in fields if f.identity_key]
-    log("inspect", f"Found {len(fields)} fields ({len(mapped)} mapped), submit={submit}")
-    return fields, submit
-
-
-def _identity_value(identity: Identity, key: str) -> str | None:
-    """Get the value from Identity for a given identity_key."""
-    if key == "_tos_checkbox":
-        return "__check__"
-    if key == "first_name":
-        return identity.first_name
-    if key == "last_name":
-        return identity.last_name
-    if key == "full_name":
-        return f"{identity.first_name} {identity.last_name}"
-    return getattr(identity, key, None)
-
-
-_REACT_FILL_JS = """(selector, value) => {
-    const el = document.querySelector(selector);
-    if (!el) return { ok: false, reason: 'not_found' };
-    el.focus();
-    const nativeSet = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype, 'value')?.set
-        || Object.getOwnPropertyDescriptor(
-        window.HTMLTextAreaElement.prototype, 'value')?.set;
-    if (nativeSet) nativeSet.call(el, value);
-    else el.value = value;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    el.dispatchEvent(new Event('blur', { bubbles: true }));
-    return { ok: true };
-}"""
-
-_CHECKBOX_JS = """(selector) => {
-    const el = document.querySelector(selector);
-    if (!el) return { ok: false, reason: 'not_found' };
-    if (!el.checked) el.click();
-    return { ok: true };
-}"""
-
-
-async def deterministic_signup(
-    page: Any,
-    fields: list[FormField],
-    identity: Identity,
-    submit_selector: str | None,
-) -> bool:
-    """Fill signup form deterministically via JS. Returns True if form submitted."""
-    filled = 0
-    required_missed = 0
-
-    for f in fields:
-        if not f.identity_key:
-            if f.required:
-                required_missed += 1
-            continue
-
-        value = _identity_value(identity, f.identity_key)
-        if not value:
-            if f.required:
-                required_missed += 1
-            continue
-
-        try:
-            if f.identity_key == "_tos_checkbox":
-                result = await page.evaluate(_CHECKBOX_JS, f.selector)
-            else:
-                result = await page.evaluate(_REACT_FILL_JS, f.selector, value)
-
-            if result and result.get("ok"):
-                filled += 1
-            elif f.required:
-                required_missed += 1
-        except Exception as e:
-            log("fill", f"Failed to fill {f.selector}: {e}")
-            if f.required:
-                required_missed += 1
-
-    log("fill", f"Filled {filled} fields, {required_missed} required fields missed")
-
-    if required_missed > 0:
-        log("fill", "Cannot submit — required fields unmapped")
-        return False
-
-    if filled == 0:
-        log("fill", "No fields filled — aborting deterministic signup")
-        return False
-
-    # Click submit
-    if submit_selector:
-        try:
-            await page.click(submit_selector)
-            log("fill", f"Clicked submit: {submit_selector}")
-        except Exception:
-            # Fallback: try pressing Enter on last field
-            try:
-                await page.keyboard.press("Enter")
-                log("fill", "Submit click failed, pressed Enter instead")
-            except Exception as e:
-                log("fill", f"Submit failed entirely: {e}")
-                return False
-    else:
-        # No submit selector — try Enter
-        try:
-            await page.keyboard.press("Enter")
-            log("fill", "No submit selector, pressed Enter")
-        except Exception as e:
-            log("fill", f"Enter key failed: {e}")
-            return False
-
-    # Wait for navigation/response
-    await asyncio.sleep(3)
-
-    # Check for success signals
-    try:
-        current_url = page.url
-        body_text = await page.evaluate("() => document.body?.innerText?.substring(0, 2000) || ''")
-
-        # Success signals
-        success_patterns = [
-            "check your email", "verify your email", "confirmation link",
-            "we sent", "verification email", "dashboard", "welcome",
-            "account created", "successfully registered", "almost done",
-            "confirm your", "activate your", "one more step",
-        ]
-        for pat in success_patterns:
-            if pat in body_text.lower():
-                log("fill", f"Success signal detected: '{pat}'")
-                return True
-
-        # Check for URL change (redirect to dashboard/verify page = success)
-        if current_url and submit_selector:
-            parsed_current = urlparse(current_url)
-            if any(k in parsed_current.path.lower() for k in (
-                "dashboard", "verify", "confirm", "welcome", "onboarding",
-                "check-email", "success", "complete",
-            )):
-                log("fill", f"Success: redirected to {parsed_current.path}")
-                return True
-
-        # Error signals — form didn't submit properly
-        error_patterns = ["invalid", "error", "required", "already exists", "try again"]
-        for pat in error_patterns:
-            if pat in body_text.lower()[:500]:
-                log("fill", f"Error signal detected: '{pat}' — form may have validation errors")
-                return False
-
-    except Exception as e:
-        log("fill", f"Post-submit check failed: {e}")
-
-    # Ambiguous — assume it worked if we filled fields and clicked submit
-    log("fill", "No clear success/error signal — assuming submission worked")
-    return True
 
 
 # ── Agent runner ──────────────────────────────────────────────────────
@@ -1347,42 +761,15 @@ def _infer_magic_link(signup_text: str) -> bool:
 # ── Task prompts ──────────────────────────────────────────────────────
 
 
-def build_signup_task(
-    url: str, identity: Identity, profile: SiteProfile | None = None,
-) -> str:
+def build_signup_task(url: str, identity: Identity) -> str:
     local_phone = re.sub(r"\D", "", identity.phone)[-10:] if identity.phone else ""
-
-    # Profile-informed hints
-    nav_hint = ""
-    if profile and profile.signup_url:
-        nav_hint = f"Go directly to {profile.signup_url} (known signup page).\n"
-    else:
-        nav_hint = (
-            f"Open {url} and find the signup page from visible UI "
-            "(Sign up/Register/Create account).\n"
-        )
-
-    field_hint = ""
-    if profile and profile.form_fields:
-        mapped = [f for f in profile.form_fields if f.identity_key]
-        if mapped:
-            names = [f.identity_key for f in mapped]
-            field_hint = f"This form is known to have fields: {', '.join(names)}. Fill them all.\n"
-
-    auth_hint = ""
-    if profile and profile.auth_provider:
-        auth_hint = f"This site uses {profile.auth_provider} authentication.\n"
-
-    captcha_hint = ""
-    if profile and profile.captcha_type:
-        captcha_hint = f"Expect a {profile.captcha_type} captcha — handle it when it appears.\n"
-
     return f"""
-{nav_hint}Register a NEW account by email (not OAuth/Google/GitHub).
+Open {url} and register a NEW account by email (not OAuth/Google/GitHub).
+Discover the signup path from visible UI (Sign up/Register/Create account).
 Stay on the target website domain only.
 Do NOT use search tools, open email providers, or navigate off-domain.
 Do NOT create files, todo lists, or notes.
-{field_hint}{auth_hint}{captcha_hint}
+
 Credentials (copy exact text inside backticks, no extra punctuation/spaces):
 - first_name: `{identity.first_name}`
 - last_name: `{identity.last_name}`
@@ -1416,27 +803,20 @@ DETAILS: <short reason>
 """.strip()
 
 
-def build_login_apikey_task(
-    url: str, identity: Identity, profile: SiteProfile | None = None,
-) -> str:
-    login_target = (profile.login_url if profile and profile.login_url else url)
-    api_key_hint = ""
-    if profile and profile.api_key_url:
-        api_key_hint = f"   Known API key page: {profile.api_key_url}\n"
-
+def build_login_apikey_task(url: str, identity: Identity) -> str:
     return f"""
 Stay on domain {url}. Do not visit email providers or other sites.
 Do not create files, todo lists, or notes.
 
 1) Check current auth state. If you see an authenticated dashboard/workspace/profile,
    treat LOGIN as SUCCESS and skip to API key discovery.
-2) If not authenticated, log in at {login_target}:
+2) If not authenticated, log in at {url}:
    - email: `{identity.email}`
    - password: `{identity.password}`
    Copy exact text inside backticks only.
 3) If login needs magic link/2FA, or says "No account found", stop immediately.
 4) Find API key/token page fast:
-{api_key_hint}   Try direct paths: /api-keys, /settings/api, /settings/api-keys,
+   Try direct paths: /api-keys, /settings/api, /settings/api-keys,
    /account/api-keys, /developer/api, /developer/api-keys.
    Then check Settings, Developer, Integrations (max 2 steps per dead path).
 5) If key exists in plaintext, copy the FULL secret value.
@@ -1467,19 +847,13 @@ async def signup(
     skip_verification: bool = False,
     profile_id: str | None = None,
     retry_email_conflict: bool = True,
-    # v3 options
-    use_cloud: bool = True,
-    no_recon: bool = False,
-    refresh_profile: bool = False,
-    headed: bool = False,
-    custom_profile_dir: str | None = None,
 ):
     global _t0
     _t0 = time.time()
 
     # Fail fast on missing required env vars
     missing = []
-    if use_cloud and not BROWSER_USE_API_KEY:
+    if not BROWSER_USE_API_KEY:
         missing.append("BROWSER_USE_API_KEY")
     if not AGENTMAIL_API_KEY:
         missing.append("AGENTMAIL_API_KEY")
@@ -1491,49 +865,28 @@ async def signup(
     log("model", f"Requested={model} Resolved={resolved_model}")
 
     mail = AsyncAgentMail(api_key=AGENTMAIL_API_KEY, timeout=20)
-    domain = _base_domain(url)
-    base_url = url.rstrip("/")
 
-    # ── Recon: load or build site profile ──
-    site_profile: SiteProfile | None = None
-    if not no_recon:
-        site_profile = load_profile(domain, custom_profile_dir)
-        if site_profile and not refresh_profile:
-            log("profile", f"Loaded cached profile (confidence={site_profile.confidence:.2f}, "
-                           f"successes={site_profile.success_count}, failures={site_profile.failure_count})")
-        else:
-            log("recon", "Running Firecrawl recon...")
-            site_profile = await recon_site(url)
-            save_profile(site_profile, custom_profile_dir)
+    # ── Pre-flight: free zombie cloud sessions from previous killed runs ──
+    with contextlib.suppress(Exception):
+        n_killed = await stop_all_active_cloud_sessions()
+        if n_killed:
+            log("setup", f"Freed {n_killed} zombie session(s)")
 
-    # ── HAR capture path ──
-    har_path = _profile_dir(custom_profile_dir) / f"{domain}.har"
-    use_local = not use_cloud
+    # Clean up stale cloud sessions from previous runs
+    for _ in range(3):
+        stopped = await stop_oldest_active_cloud_session()
+        if not stopped:
+            break
+        log("setup", f"Cleaned up stale session: {stopped}")
 
-    # ── Pre-flight: free zombie cloud sessions ──
-    if not use_local:
-        with contextlib.suppress(Exception):
-            n_killed = await stop_all_active_cloud_sessions()
-            if n_killed:
-                log("setup", f"Freed {n_killed} zombie session(s)")
-        for _ in range(3):
-            stopped = await stop_oldest_active_cloud_session()
-            if not stopped:
-                break
-            log("setup", f"Cleaned up stale session: {stopped}")
-
-    # ── Create browser (cloud by default, local with --local or no API key) ──
-    if use_local:
-        log("setup", "Creating local Playwright browser...")
-        browser = await create_local_browser(headless=not headed, har_path=har_path)
-    else:
-        log("setup", "Creating browser-use cloud browser...")
-        browser = await create_cloud_browser(profile_id, har_path=har_path)
-
-    # ── Create inbox + identity ──
-    log("setup", "Creating inbox...")
-    inbox_id, created_inbox = await acquire_inbox(mail)
+    # ── Parallel setup: inbox + browser ──
+    log("setup", "Creating inbox + cloud browser...")
+    (inbox_id, created_inbox), browser = await asyncio.gather(
+        acquire_inbox(mail),
+        create_cloud_browser(profile_id),
+    )
     identity = generate_identity(inbox_id)
+    base_url = url.rstrip("/")
     log("setup", f"Email: {identity.email}")
     log("creds", f"{identity.first_name} {identity.last_name} / {identity.username} / {identity.password}")
 
@@ -1544,28 +897,25 @@ async def signup(
         log("session", f"Rebuilding browser: {reason}")
         with contextlib.suppress(Exception):
             await asyncio.wait_for(browser.stop(), timeout=10)
-        if use_local:
-            browser = await create_local_browser(headless=not headed)
-        else:
-            for _attempt in range(3):
-                with contextlib.suppress(Exception):
-                    killed = await stop_oldest_active_cloud_session()
-                    if killed:
-                        log("session", f"Freed zombie session: {killed}")
-                try:
-                    browser = await create_cloud_browser(profile_id)
-                    return
-                except Exception as e:
-                    if "429" in str(e) or "too many" in str(e).lower():
-                        log("session", f"429 on browser create, freeing another session...")
-                        await asyncio.sleep(2)
-                        continue
-                    raise
-            browser = await create_cloud_browser(profile_id)
+        # Free zombie cloud sessions before creating new one (avoids 429)
+        for _attempt in range(3):
+            with contextlib.suppress(Exception):
+                killed = await stop_oldest_active_cloud_session()
+                if killed:
+                    log("session", f"Freed zombie session: {killed}")
+            try:
+                browser = await create_cloud_browser(profile_id)
+                return
+            except Exception as e:
+                if "429" in str(e) or "too many" in str(e).lower():
+                    log("session", f"429 on browser create, freeing another session...")
+                    await asyncio.sleep(2)
+                    continue
+                raise
+        browser = await create_cloud_browser(profile_id)  # final attempt, let it fail
 
     try:
-        # ── Phase 1: Signup ──
-        # Start email polling in background
+        # ── Phase 1: Signup + parallel email polling ──
         verify_task: asyncio.Task[VerificationCandidate] | None = None
         if not skip_verification:
             verify_task = asyncio.create_task(
@@ -1576,120 +926,72 @@ async def signup(
                 )
             )
 
-        # ── Tier 1: Deterministic form fill ──
-        deterministic_succeeded = False
-        if site_profile and site_profile.signup_url:
-            log("signup", f"Tier 1: Navigating to {site_profile.signup_url}...")
-            try:
-                page = await browser.get_current_page()
-                await page.goto(site_profile.signup_url, wait_until="domcontentloaded", timeout=30000)
-                await asyncio.sleep(2)
+        signup_prompt = build_signup_task(base_url, identity)
+        signup_result = await run_agent(
+            browser, llm, "signup", signup_prompt,
+            max_steps=max_steps, timeout_s=signup_timeout, retries=1,
+        )
 
-                # Live DOM inspection (more accurate than Firecrawl HTML parsing)
-                live_fields, live_submit = await inspect_signup_form(page)
-                if live_fields:
-                    site_profile.form_fields = live_fields
-                    site_profile.submit_selector = live_submit
+        # Captcha retry with browser rebuild
+        if _looks_like_captcha_failure(signup_result) and not signup_result.success:
+            log("signup", "Captcha failure; rebuilding browser and retrying...")
+            await rebuild_browser("captcha_failure")
+            signup_result = await run_agent(
+                browser, llm, "signup-retry", signup_prompt,
+                max_steps=max_steps, timeout_s=signup_timeout, retries=1,
+            )
 
-                mapped = [f for f in site_profile.form_fields if f.identity_key]
-                has_email = any(f.identity_key == "email" for f in mapped)
-                has_password = any(f.identity_key == "password" for f in mapped)
-
-                if has_email and has_password and len(mapped) >= 2:
-                    log("signup", f"Tier 1: Attempting deterministic fill ({len(mapped)} mapped fields)...")
-                    deterministic_succeeded = await deterministic_signup(
-                        page, site_profile.form_fields, identity, site_profile.submit_selector,
-                    )
-                    if deterministic_succeeded:
-                        log("signup", "Tier 1 SUCCESS — form filled and submitted without LLM")
-                else:
-                    log("signup", f"Tier 1: Insufficient fields (email={has_email}, password={has_password}, mapped={len(mapped)})")
-            except Exception as e:
-                log("signup", f"Tier 1 failed: {e}")
-
-        # ── Tier 2/3: Agent-based signup (if Tier 1 didn't work) ──
-        signup_result: RunResult | None = None
-        if not deterministic_succeeded:
-            tier = "2" if site_profile else "3"
-            log("signup", f"Tier {tier}: Running browser-use agent...")
-            signup_prompt = build_signup_task(base_url, identity, profile=site_profile)
+        # Browser instability retry (EventBus stall, low step count, or infra crash)
+        for _ in range(3):
+            if signup_result.success:
+                break
+            # If verification email arrived, signup succeeded even if agent crashed
+            if verify_task and verify_task.done() and not verify_task.cancelled():
+                with contextlib.suppress(Exception):
+                    vcandidate = verify_task.result()
+                    if vcandidate and (vcandidate.link or vcandidate.code):
+                        log("signup", "Verification email arrived → signup succeeded despite agent crash")
+                        signup_result = RunResult(
+                            output="STATUS: NEEDS_VERIFICATION\nDETAILS: agent crashed but verification email confirms signup",
+                            success=True, steps=signup_result.steps, error=None,
+                        )
+                        break
+            has_status = bool(re.search(r"STATUS\s*:", signup_result.output or "", re.IGNORECASE))
+            needs_rebuild = (
+                _needs_browser_rebuild(signup_result.error)
+                or signup_result.steps <= 1
+                or (not signup_result.success and not has_status)  # crashed without STATUS = infra failure
+            )
+            if not needs_rebuild:
+                break
+            log("signup", f"Browser instability (steps={signup_result.steps}, has_status={has_status}); rebuilding...")
+            await asyncio.sleep(3)  # cooldown before rebuild (helps with Cloudflare rate limits)
+            await rebuild_browser("session_instability")
             signup_result = await run_agent(
                 browser, llm, "signup", signup_prompt,
                 max_steps=max_steps, timeout_s=signup_timeout, retries=1,
             )
 
-        # Agent retry logic (skip if deterministic succeeded)
-        if signup_result:
-            signup_prompt = build_signup_task(base_url, identity, profile=site_profile)
+        # Model fallback: OpenAI schema mismatch → bu-2-0
+        if (
+            not signup_result.success
+            and "openai" in type(llm).__name__.lower()
+            and signup_result.error
+            and "items" in signup_result.error.lower()
+        ):
+            log("model", "OpenAI schema mismatch; falling back to bu-2-0")
+            from browser_use import ChatBrowserUse
+            llm = ChatBrowserUse(model="bu-2-0", api_key=BROWSER_USE_API_KEY)
+            resolved_model = f"{resolved_model}->bu-2-0"
+            signup_result = await run_agent(
+                browser, llm, "signup", signup_prompt,
+                max_steps=max_steps, timeout_s=signup_timeout, retries=1,
+            )
 
-            # Captcha retry with browser rebuild
-            if _looks_like_captcha_failure(signup_result) and not signup_result.success:
-                log("signup", "Captcha failure; rebuilding browser and retrying...")
-                await rebuild_browser("captcha_failure")
-                signup_result = await run_agent(
-                    browser, llm, "signup-retry", signup_prompt,
-                    max_steps=max_steps, timeout_s=signup_timeout, retries=1,
-                )
-
-            # Browser instability retry
-            for _ in range(3):
-                if signup_result.success:
-                    break
-                if verify_task and verify_task.done() and not verify_task.cancelled():
-                    with contextlib.suppress(Exception):
-                        vcandidate = verify_task.result()
-                        if vcandidate and (vcandidate.link or vcandidate.code):
-                            log("signup", "Verification email arrived → signup succeeded despite agent crash")
-                            signup_result = RunResult(
-                                output="STATUS: NEEDS_VERIFICATION\nDETAILS: agent crashed but verification email confirms signup",
-                                success=True, steps=signup_result.steps, error=None,
-                            )
-                            break
-                has_status = bool(re.search(r"STATUS\s*:", signup_result.output or "", re.IGNORECASE))
-                needs_rebuild = (
-                    _needs_browser_rebuild(signup_result.error)
-                    or signup_result.steps <= 1
-                    or (not signup_result.success and not has_status)
-                )
-                if not needs_rebuild:
-                    break
-                log("signup", f"Browser instability (steps={signup_result.steps}, has_status={has_status}); rebuilding...")
-                await asyncio.sleep(3)
-                await rebuild_browser("session_instability")
-                signup_result = await run_agent(
-                    browser, llm, "signup", signup_prompt,
-                    max_steps=max_steps, timeout_s=signup_timeout, retries=1,
-                )
-
-            # Model fallback: OpenAI schema mismatch → bu-2-0
-            if (
-                not signup_result.success
-                and "openai" in type(llm).__name__.lower()
-                and signup_result.error
-                and "items" in signup_result.error.lower()
-            ):
-                log("model", "OpenAI schema mismatch; falling back to bu-2-0")
-                from browser_use import ChatBrowserUse
-                llm = ChatBrowserUse(model="bu-2-0", api_key=BROWSER_USE_API_KEY)
-                resolved_model = f"{resolved_model}->bu-2-0"
-                signup_result = await run_agent(
-                    browser, llm, "signup", signup_prompt,
-                    max_steps=max_steps, timeout_s=signup_timeout, retries=1,
-                )
-
-        # Parse signup outcome
-        if deterministic_succeeded:
-            signup_status = "NEEDS_VERIFICATION"  # deterministic can't know for sure
-            signup_details = "Deterministic form fill succeeded"
-            signup_text = ""
-            needs_verification = True  # assume verification needed, pipeline handles if not
-            is_magic_link = False
-        else:
-            assert signup_result is not None
-            signup_status, signup_details = parse_signup_status(signup_result.output)
-            signup_text = (signup_result.output or "").lower()
-            needs_verification = _infer_needs_verification(signup_status, signup_text)
-            is_magic_link = _infer_magic_link(signup_result.output or "")
+        signup_status, signup_details = parse_signup_status(signup_result.output)
+        signup_text = (signup_result.output or "").lower()
+        needs_verification = _infer_needs_verification(signup_status, signup_text)
+        is_magic_link = _infer_magic_link(signup_result.output or "")
 
         # Email conflict retry
         if (
@@ -1704,7 +1006,7 @@ async def signup(
             identity = generate_identity(inbox_id)
             log("signup", f"Retry email: {identity.email}")
             await rebuild_browser("email_conflict_retry")
-            signup_prompt = build_signup_task(base_url, identity, profile=site_profile)
+            signup_prompt = build_signup_task(base_url, identity)
             # Restart verification watcher
             if verify_task and not verify_task.done():
                 verify_task.cancel()
@@ -1731,7 +1033,7 @@ async def signup(
         # Signup totally failed — bail
         signup_actually_failed = (
             signup_status == "SIGNUP_FAILED"
-            or (signup_status == "UNKNOWN" and signup_result is not None and not signup_result.success)
+            or (signup_status == "UNKNOWN" and not signup_result.success)
         )
         if signup_actually_failed:
             if verify_task and not verify_task.done():
@@ -1742,10 +1044,6 @@ async def signup(
                            signup_ok=False, verified=False, login_ok=False,
                            api_key=None, api_key_url=None, login_url=None,
                            notes=signup_details or "Signup failed.")
-            if site_profile:
-                site_profile.failure_count += 1
-                site_profile.confidence = max(0.05, round(site_profile.confidence - 0.12, 3))
-                save_profile(site_profile, custom_profile_dir)
             return
 
         # ── Phase 2: Verification ──
@@ -1870,7 +1168,7 @@ async def signup(
                     f"enter code `{verification_code}` (preserve leading zeros). Then continue to login.\n\n"
                 )
 
-            login_task = build_login_apikey_task(base_url, identity, profile=site_profile)
+            login_task = build_login_apikey_task(base_url, identity)
             if verify_preamble:
                 login_task = verify_preamble + login_task
             log("login", "Password-based login...")
@@ -2018,28 +1316,6 @@ async def signup(
                        login_url=login_url,
                        notes=notes)
 
-        # ── Update site profile with results ──
-        if site_profile:
-            if not signup_actually_failed:
-                site_profile.success_count += 1
-                site_profile.confidence = min(0.99, round(site_profile.confidence + 0.03, 3))
-            else:
-                site_profile.failure_count += 1
-                site_profile.confidence = max(0.05, round(site_profile.confidence - 0.12, 3))
-            # Save discovered URLs
-            if login_ok and login_url:
-                site_profile.login_url = login_url
-            if api_key_url:
-                site_profile.api_key_url = api_key_url
-            if verified and verification_link:
-                site_profile.verification_method = "email_link"
-            elif verified and verification_code:
-                site_profile.verification_method = "email_code"
-            if is_magic_link:
-                site_profile.verification_method = "magic_link"
-            site_profile.har_path = str(har_path)
-            save_profile(site_profile, custom_profile_dir)
-
     finally:
         with contextlib.suppress(Exception):
             await browser.stop()
@@ -2186,7 +1462,7 @@ def main():
     global _t0
     _t0 = time.time()
 
-    p = argparse.ArgumentParser(description="Sigma v3: reverse-engineer signup + auto API key")
+    p = argparse.ArgumentParser(description="Sigma Combined: auto signup + API key")
     p.add_argument("url", help="Website URL")
     p.add_argument(
         "--llm", default="bu",
@@ -2200,14 +1476,6 @@ def main():
     p.add_argument("--profile-id", default=None, help="Browser Use profile id for pre-auth cookies")
     p.add_argument("--no-retry-email-conflict", dest="retry_email_conflict", action="store_false", default=True)
     p.add_argument("--timeout", type=int, default=None, help="(compat alias for --signup-timeout)")
-
-    # v3 options
-    p.add_argument("--local", action="store_true", help="Use local Playwright instead of browser-use cloud")
-    p.add_argument("--no-recon", action="store_true", help="Skip Firecrawl recon (blind mode)")
-    p.add_argument("--refresh-profile", action="store_true", help="Force re-crawl even if cached profile exists")
-    p.add_argument("--headed", action="store_true", help="Show browser window (local mode only)")
-    p.add_argument("--profile-dir", default=None, help="Custom profile storage dir (default ~/.sigma/profiles)")
-
     args = p.parse_args()
     if args.timeout is not None:
         args.signup_timeout = args.timeout
@@ -2222,11 +1490,6 @@ def main():
         skip_verification=args.skip_verification,
         profile_id=args.profile_id,
         retry_email_conflict=args.retry_email_conflict,
-        use_cloud=not args.local,
-        no_recon=args.no_recon,
-        refresh_profile=args.refresh_profile,
-        headed=args.headed,
-        custom_profile_dir=args.profile_dir,
     ))
 
 

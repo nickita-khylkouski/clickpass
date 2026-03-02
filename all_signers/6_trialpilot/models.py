@@ -1,0 +1,219 @@
+"""Typed models for TrialPilot 6-agent onboarding flows."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Mapping
+from urllib.parse import urlparse
+
+
+class PipelineAgent(str, Enum):
+    """Fixed six-agent pipeline stages."""
+
+    IDENTITY = "identity"
+    POLICY = "policy"
+    SIGNUP = "signup"
+    VERIFICATION = "verification"
+    BILLING = "billing"
+    CREDENTIAL = "credential"
+
+
+class RunStatus(str, Enum):
+    """Run lifecycle."""
+
+    READY = "ready"
+    RUNNING = "running"
+    SUCCESS = "success"
+    PARTIAL_FAILURE = "partial_failure"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class IdentityProfile:
+    """User identity used for delegated onboarding."""
+
+    full_name: str
+    email: str
+    phone: str
+    country: str = "US"
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "IdentityProfile":
+        return cls(
+            full_name=str(data.get("full_name", "")).strip(),
+            email=str(data.get("email", "")).strip().lower(),
+            phone=str(data.get("phone", "")).strip(),
+            country=str(data.get("country", "US")).strip().upper() or "US",
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "full_name": self.full_name,
+            "email": self.email,
+            "phone": self.phone,
+            "country": self.country,
+        }
+
+
+@dataclass(frozen=True)
+class TrialPolicy:
+    """Safety and business constraints for autonomous runs."""
+
+    allowed_domains: tuple[str, ...] = ()
+    max_spend_usd: float = 10.0
+    require_sms_approval: bool = True
+    require_kyc_approval: bool = True
+    require_terms_approval: bool = True
+    auto_cancel_hours_before_billing: int = 24
+    cancel_immediately: bool = True
+    require_trial_started: bool = False
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "TrialPolicy":
+        raw_domains = data.get("allowed_domains", ())
+        if isinstance(raw_domains, str):
+            allowed_domains = (raw_domains,)
+        else:
+            allowed_domains = tuple(str(v).strip().lower() for v in raw_domains or () if str(v).strip())
+
+        return cls(
+            allowed_domains=allowed_domains,
+            max_spend_usd=float(data.get("max_spend_usd", 10.0)),
+            require_sms_approval=bool(data.get("require_sms_approval", True)),
+            require_kyc_approval=bool(data.get("require_kyc_approval", True)),
+            require_terms_approval=bool(data.get("require_terms_approval", True)),
+            auto_cancel_hours_before_billing=int(data.get("auto_cancel_hours_before_billing", 24)),
+            cancel_immediately=bool(data.get("cancel_immediately", True)),
+            require_trial_started=bool(data.get("require_trial_started", False)),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "allowed_domains": list(self.allowed_domains),
+            "max_spend_usd": self.max_spend_usd,
+            "require_sms_approval": self.require_sms_approval,
+            "require_kyc_approval": self.require_kyc_approval,
+            "require_terms_approval": self.require_terms_approval,
+            "auto_cancel_hours_before_billing": self.auto_cancel_hours_before_billing,
+            "cancel_immediately": self.cancel_immediately,
+            "require_trial_started": self.require_trial_started,
+        }
+
+
+@dataclass(frozen=True)
+class TargetService:
+    """Service to onboard against."""
+
+    service_name: str
+    signup_url: str
+    api_key_path_hint: str = "/settings/api"
+    trial_plan: str = "free-trial"
+    expected_challenges: tuple[str, ...] = ()
+
+    @property
+    def signup_domain(self) -> str:
+        host = urlparse(self.signup_url).hostname or ""
+        return host.lower()
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "TargetService":
+        raw_challenges = data.get("expected_challenges", ())
+        challenges = tuple(str(v).strip().lower() for v in raw_challenges or () if str(v).strip())
+        return cls(
+            service_name=str(data.get("service_name", "")).strip(),
+            signup_url=str(data.get("signup_url", "")).strip(),
+            api_key_path_hint=str(data.get("api_key_path_hint", "/settings/api")).strip() or "/settings/api",
+            trial_plan=str(data.get("trial_plan", "free-trial")).strip() or "free-trial",
+            expected_challenges=challenges,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "service_name": self.service_name,
+            "signup_url": self.signup_url,
+            "api_key_path_hint": self.api_key_path_hint,
+            "trial_plan": self.trial_plan,
+            "expected_challenges": list(self.expected_challenges),
+        }
+
+
+@dataclass(frozen=True)
+class RunArtifact:
+    """Structured artifact generated by any stage."""
+
+    stage: PipelineAgent
+    event: str
+    detail: str
+    data: dict[str, Any] = field(default_factory=dict)
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "RunArtifact":
+        return cls(
+            stage=PipelineAgent(str(data.get("stage", PipelineAgent.IDENTITY.value))),
+            event=str(data.get("event", "")),
+            detail=str(data.get("detail", "")),
+            data=dict(data.get("data", {}) or {}),
+            created_at=str(data.get("created_at", datetime.now(timezone.utc).isoformat())),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "stage": self.stage.value,
+            "event": self.event,
+            "detail": self.detail,
+            "data": dict(self.data),
+            "created_at": self.created_at,
+        }
+
+
+@dataclass
+class RunContext:
+    """Mutable execution context across the full six-agent flow."""
+
+    run_id: str
+    identity: IdentityProfile
+    policy: TrialPolicy
+    target: TargetService
+    status: RunStatus = RunStatus.READY
+    artifacts: list[RunArtifact] = field(default_factory=list)
+    events: list[dict[str, Any]] = field(default_factory=list)
+    output: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "RunContext":
+        return cls(
+            run_id=str(data.get("run_id", "")),
+            identity=IdentityProfile.from_dict(dict(data.get("identity", {}) or {})),
+            policy=TrialPolicy.from_dict(dict(data.get("policy", {}) or {})),
+            target=TargetService.from_dict(dict(data.get("target", {}) or {})),
+            status=RunStatus(str(data.get("status", RunStatus.READY.value))),
+            artifacts=[RunArtifact.from_dict(x) for x in list(data.get("artifacts", []) or [])],
+            events=list(data.get("events", []) or []),
+            output=dict(data.get("output", {}) or {}),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "identity": self.identity.to_dict(),
+            "policy": self.policy.to_dict(),
+            "target": self.target.to_dict(),
+            "status": self.status.value,
+            "artifacts": [a.to_dict() for a in self.artifacts],
+            "events": list(self.events),
+            "output": dict(self.output),
+        }
+
+
+__all__ = [
+    "IdentityProfile",
+    "PipelineAgent",
+    "RunArtifact",
+    "RunContext",
+    "RunStatus",
+    "TargetService",
+    "TrialPolicy",
+]
