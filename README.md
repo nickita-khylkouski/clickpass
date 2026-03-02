@@ -137,7 +137,34 @@ python v2/sigma_combined.py https://example.com --signup-timeout 300 --login-tim
 
 ## Test results
 
-Tested on 19 sites (2026-03-01):
+### Latest (2026-03-02, v3 with structured output + stealth)
+
+Tested on 12 unique sites — **6/12 full success (50%)**:
+
+| Site | Signup | Verify | Login | API Key | Notes |
+|------|--------|--------|-------|---------|-------|
+| helicone.ai | ok | yes | ok | `sk-helicone-...` | |
+| langfuse.com | ok | yes | ok | `sk-lf-...` | |
+| greptile.com | ok | - | ok | `b7TE5YqO...` | No verification needed |
+| reducto.ai | ok | yes | ok | `05c7ceed...` | |
+| parea.ai | ok | yes | ok | `pai-9982...` | |
+| hyperbrowser.ai | ok | yes | ok | `hb_3ce28b...` | |
+| vellum.ai | ok | yes | ok | NONE | Auth0 returns HTTP 500 |
+| humanloop.com | fail | - | - | - | Clerk redirect, no email signup |
+| mem0.ai | fail | - | - | - | Wrong signup URL from recon |
+| firecrawl.dev | fail | - | - | - | Cloudflare CAPTCHA |
+| cerebrium.ai | fail | - | - | - | Turnstile CAPTCHA |
+| theneo.io | fail | - | - | - | Hidden CAPTCHA |
+
+**Failure categories:**
+- CAPTCHA blocking (3 sites, 25%) — biggest fixable gap
+- Auth provider redirect (1) — Clerk OAuth-only
+- Bad recon URL (1) — Firecrawl returned wrong signup page
+- Server-side error (1) — Auth0 callback HTTP 500
+
+### Earlier (2026-03-01, v2)
+
+Tested on 19 sites:
 - **7/19 full success**: helicone, langfuse, parea, confident-ai, cerebrium, reducto, theneo
-- **3/19 correct refusal**: traceloop, getzep, laminar (OAuth-only, no email signup)
+- **3/19 correct refusal**: traceloop, getzep, laminar (OAuth-only)
 - Common failure modes: Auth0 stalls, Shadow DOM OTP, disposable email blocking
