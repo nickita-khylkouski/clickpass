@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nickita Khylkouski's Home Page</title>
+    <style>
+      body {
+        margin: 18px 28px 32px;
+        font-family: "Times New Roman", Times, serif;
+        font-size: 16px;
+        line-height: 1.12;
+        background: white;
+        color: black;
+      }
+
+      .page {
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 18px 0 16px;
+        font-size: 32px;
+      }
+
+      h2 {
+        margin: 24px 0 14px;
+        font-size: 18px;
+        text-align: center;
+      }
+
+      h3 {
+        margin: 20px 0 10px;
+        font-size: 16px;
+      }
+
+      p {
+        margin: 0 0 14px;
+      }
+
+      ul {
+        margin: 10px 0 0 22px;
+        padding: 0;
+      }
+
+      li {
+        margin-bottom: 10px;
+      }
+
+      .toplogos {
+        float: right;
+        margin: 0 0 14px 18px;
+      }
+
+      .toplogos a {
+        text-decoration: none;
+      }
+
+      .toplogos img {
+        width: 24px;
+        height: 24px;
+        vertical-align: middle;
+        margin-left: 8px;
+      }
+
+      .portrait {
+        float: right;
+        width: 250px;
+        height: 300px;
+        margin: 6px 0 18px 26px;
+        border: 1px solid black;
+        display: block;
+        object-fit: cover;
+      }
+
+      .entry-title {
+        font-weight: bold;
+      }
+
+      .clear {
+        clear: both;
+      }
+
+      @media (max-width: 760px) {
+        body {
+          margin: 16px;
+        }
+
+        .toplogos {
+          float: none;
+          margin: 0 0 14px;
+        }
+
+        .toplogos img {
+          margin: 0 8px 0 0;
+        }
+
+        .portrait {
+          float: none;
+          width: 220px;
+          margin: 10px auto 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="toplogos">
+        <a href="https://github.com/nickita-khylkouski">
+          <img src="https://github.com/favicon.ico" alt="GitHub" />
+        </a>
+        <a href="https://www.linkedin.com/in/nickita-khy">
+          <img src="https://www.linkedin.com/favicon.ico" alt="LinkedIn" />
+        </a>
+        <a href="https://www.cerebralvalley.ai/">
+          <img src="https://www.cerebralvalley.ai/icon-light-32x32.png" alt="Cerebral Valley" />
+        </a>
+        <a href="/usage/" style="margin-left: 10px; vertical-align: middle;">My AI Usage</a>
+      </div>
+
+      <h1>Nickita Khylkouski's Home Page</h1>
+
+      <p>
+        Student and builder in Redwood City -
+        <a href="mailto:nickitakhy@gmail.com">nickitakhy@gmail.com</a> -
+        <a href="nickita-khylkouski-resume.pdf">resume</a>
+      </p>
+
+      <img
+        class="portrait"
+        src="profile-photo.jpg"
+        alt="Nickita Khylkouski speaking"
+      />
+
+      <h2>Research</h2>
+
+      <p>
+        <b>Currently I am at <a href="https://www.cerebralvalley.ai/">Cerebral Valley</a> doing data analysis,
+        software engineering, and security engineering.</b>
+      </p>
+
+      <h3>Data Enrichment</h3>
+
+      <p>
+        One thing I am interested in right now is data enrichment. I like taking messy video or image data and turning
+        it into cleaner structure that is actually useful.
+      </p>
+
+      <p>
+        For example, if somebody gets out of a car, I want a person, a car, an exit event, and the link between them,
+        not just raw footage.
+      </p>
+
+      <h3>Ranking Qualitative Data</h3>
+
+      <p>
+        Another thing I like is ranking qualitative data. Ranking data is hard enough already: which metric, how do you
+        weight it, and how do you compare it.
+      </p>
+
+      <p>
+        The qualitative part makes it more interesting. Right now I am trying a variety of techniques such as turning it
+        into numbers, using embedding models, training models, and seeing which representation gives the cleanest
+        ranking.
+      </p>
+
+      <h3>Background</h3>
+
+      <p>
+        Outside of that, I have spent a lot of time in security research and penetration testing across enterprise,
+        startup, and public-sector systems.
+      </p>
+
+      <p>
+        I have won 8 different hackathons, including <a href="https://www.ycombinator.com/">YC</a> and <a href="https://replicate.com/">Replicate</a> (<a href="https://www.cloudflare.com/">Cloudflare</a>).
+      </p>
+
+      <p>
+        Another part of my work is teaching. I am an AI Ambassador and Instructor at
+        <a href="https://www.inspiritai.com/">Inspirit AI</a>, where I taught AI fundamentals to 60 students and
+        reached 2,500+ people worldwide through education.
+      </p>
+
+      <h3>Projects</h3>
+
+      <ul>
+        <li>
+          <span class="entry-title">cv-rank</span> (private, email me for more info) - debiased applicant ranking with
+          pairwise Elo-style comparisons. It combines LLM-as-judge scoring, rubric scoring, Swiss pairwise rounds, Bradley-Terry fitting,
+          anonymization, position-bias mitigation, debiasing, and borderline review. Papers:
+          <a href="https://arxiv.org/abs/2306.05685">Zheng et al. 2023</a>,
+          <a href="https://arxiv.org/abs/2310.08491">Prometheus 2024</a>,
+          <a href="https://doi.org/10.1016/j.cor.2022.105927">Sziklai et al. 2022</a>,
+          <a href="https://arxiv.org/abs/2403.04132">Chatbot Arena 2024</a>,
+          <a href="https://arxiv.org/abs/2406.07791">Shi et al. 2024</a>, and
+          <a href="https://arxiv.org/abs/2504.14716">Tripathi et al. 2025</a>.
+        </li>
+        <li>
+          <span class="entry-title">Ranky</span> (private, email me for more info) - human-facing ranking for choosing
+          the best photos. It uses pairwise comparison instead of flat scores, so the final order comes from simpler
+          choices with fewer decisions.
+        </li>
+        <li>
+          <a href="https://github.com/nickita-khylkouski/HumanPaste">HumanPaste</a> - paste does not work everywhere. It
+          takes clipboard text and retypes it with realistic keystrokes, which is useful in terminals, remote sessions,
+          and apps that accept typing but not direct paste.
+        </li>
+        <li>
+          <a href="https://github.com/nickita-khylkouski/awake">awake</a> - keeps a Mac awake during long AI agent runs,
+          with safeguards so background work does not die when the machine sleeps.
+        </li>
+        <li>
+          <a href="https://github.com/nickita-khylkouski/ultrathink">ultrathink</a> - drug-discovery search system using
+          <a href="https://doi.org/10.1038/s41586-021-03819-2">AlphaFold</a>,
+          <a href="https://www.science.org/doi/10.1126/science.ade2574">ESMFold</a>,
+          <a href="https://arxiv.org/abs/1805.11973">MolGAN</a>,
+          <a href="https://www.rdkit.org/docs/Overview.html">RDKit</a>, and simulated randomness inside an evolutionary search loop. The idea
+          was to grade and improve molecules with many AI tools together so they can cover each other's gaps better than
+          a single model.
+        </li>
+        <li>
+          <a href="https://github.com/nickita-khylkouski/DateGuesser-website">DateGuesser-website</a> - weekday
+          calculation trainer built around
+          <a href="https://archim.org.uk/eureka/archive/Eureka-36.pdf">Conway's Doomsday algorithm</a>, with repeated practice,
+          feedback, and speed modes.
+        </li>
+        <li>
+          <a href="https://github.com/nickita-khylkouski/BoidDynamics">BoidDynamics</a> - interactive flocking and
+          complex-systems simulation based on <a href="https://red3d.com/cwr/index.html">Craig Reynolds</a>'s
+          <a href="http://www.red3d.com/cwr/papers/1987/boids.html">Boids algorithm</a>.
+        </li>
+      </ul>
+
+      <h3>Open Source Contributions</h3>
+
+      <p>
+        <a href="https://github.com/google/guava">Google/guava</a> and
+        <a href="https://github.com/google/mug">Google/mug</a>: Java utility libraries.<br />
+        Google/guava: cleanup, test hygiene, thread-leak fixes, and build reliability.<br />
+        Google/mug: regex edge cases, locale-dependent failures, concurrency tests, and reproducible Maven builds.
+      </p>
+
+      <p>
+        <a href="https://github.com/google/dotprompt">Google/dotprompt</a>: prompt tooling across
+        runtimes.<br />
+        Build and test support, runtime parity fixes, package cleanup, docs fixes, and Python or Bazel workflow
+        improvements.
+      </p>
+
+      <p>
+        <a href="https://github.com/superset-sh/superset">superset</a>: AI agent desktop and infrastructure
+        work.<br />
+        Desktop behavior, billing flow, telemetry cleanup, and the ElectricSQL or Cloudflare infrastructure path.
+      </p>
+
+      <h3>Miscellaneous</h3>
+
+      <p>
+        I like going to the gym, running, and doing track and field throws.
+      </p>
+
+      <p>
+        Lifts / marks: 225 bench, 355 squat, 405 deadlift, 6-minute mile, sub-20 5K.
+      </p>
+
+      <p>
+        Lifting account: <a href="https://www.instagram.com/nk.liftss/">@nk.liftss</a>
+      </p>
+
+      <h3>Reaching Me</h3>
+
+      <p>
+        Email<br />
+        <a href="mailto:nickitakhy@gmail.com">nickitakhy@gmail.com</a>
+      </p>
+
+      <p>
+        GitHub<br />
+        <a href="https://github.com/nickita-khylkouski">github.com/nickita-khylkouski</a>
+      </p>
+
+      <p>
+        LinkedIn<br />
+        <a href="https://www.linkedin.com/in/nickita-khy">linkedin.com/in/nickita-khy</a>
+      </p>
+
+      <p class="clear">
+        Here is my <a href="nickita-khylkouski-resume.pdf">resume</a>.
+      </p>
+    </div>
+  </body>
+</html>
