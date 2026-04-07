@@ -1,0 +1,4 @@
+interface:
+  display_name: "Event Master"
+  short_description: "CV event docs, nodes, Granola, and routing"
+  default_prompt: "Use $event-master to find the canonical event docs and templates, resolve the owning workflow node plus adjacent steps, verify live platform state when relevant, use Granola only as supporting context, and then tell me the exact source docs, packets, DB signals, and concrete next operational actions or artifact updates."
