@@ -1,0 +1,5 @@
+Name,Email,Company,Role,LinkedIn,GitHub,Years Experience,Notable Achievements,Publications,Certifications,Total CV Events,Hackathon Submissions
+Alice Chen,alice@example.com,Anthropic,Staff ML Engineer,linkedin.com/in/alice,github.com/alice,9,"NeurIPS paper; shipped eval toolkit",2,1,4,2
+Bob Park,bob@example.com,OpenAI,Research Engineer,linkedin.com/in/bob,github.com/bob,6,"Open-source maintainer",1,0,2,1
+Cara Singh,cara@example.com,Indie,Founder,linkedin.com/in/cara,github.com/cara,4,"Built paying SaaS",0,0,1,2
+Dan Student,dan@example.com,University,Student,linkedin.com/in/dan,,0,"Hackathon participant",0,0,0,0

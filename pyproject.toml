@@ -1,0 +1,42 @@
+[project]
+name = "cv-rank"
+version = "0.1.0"
+description = "Rank event applicants using LLM scoring + Swiss tournaments"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "openai>=1.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+full = ["rich>=13.0", "choix>=0.3", "httpx>=0.25", "psycopg2-binary>=2.9"]
+exa = ["exa-py>=1.0", "google-generativeai>=0.8.0"]
+ml = ["xgboost>=3.2.0", "scikit-learn>=1.4", "mapie>=1.3.0", "prophet>=1.3.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
+
+[project.scripts]
+cv-rank = "cv_rank.cli:main"
+cv-rank-v2 = "cv_rank_v2.cli.main:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["tests"]
+markers = [
+    "e2e: end-to-end pipeline tests requiring OPENAI_API_KEY (deselect with: -m 'not e2e')",
+]
+addopts = "-m 'not e2e'"

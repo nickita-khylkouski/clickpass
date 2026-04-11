@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Ray Del Vecchio",
+    "email": "ray@cerebralvalley.ai",
+    "linkedin_username": "raymond-del-vecchio",
+    "github_username": "raydelvecchio",
+    "x_handle": "raydelvecc",
+    "location": "New York, USA",
+    "company": "Cerebral Valley"
+  },
+  {
+    "name": "Nickita Khylkouski",
+    "email": "nickita@cerebralvalley.ai",
+    "company": "Cerebral Valley"
+  },
+  {
+    "name": "Dennis Khylkouski",
+    "email": "dennis@cerebralvalley.ai",
+    "linkedin_username": "dennis-khylkouski-4987b12ab",
+    "github_username": "dennisimoo",
+    "company": "Cerebral Valley"
+  },
+  {
+    "name": "Huy Nguyen",
+    "email": "duchuyn0411@gmail.com",
+    "linkedin_username": "huy-nguy3n",
+    "github_username": "huy-nguy3n",
+    "latest_checked_in_event": "Agentic Memory & Context Engineering Hackathon"
+  },
+  {
+    "name": "Karthik Reddy Changal",
+    "email": "karthikchangal39@gmail.com",
+    "linkedin_username": "ckarthikr",
+    "github_username": "kikugo",
+    "latest_checked_in_event": "Gemini 3 Paris Hackathon"
+  },
+  {
+    "name": "Thilak Shekhar Shriyan",
+    "email": "thilaksshriyan@gmail.com",
+    "linkedin_username": "thilakshekharshriyan",
+    "github_username": "thilakshekharshriyan",
+    "latest_checked_in_event": "Gemini Vibe Code Hackathon – SF"
+  }
+]

@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "run_id": "oracle_20260403_000001",
+    "event_name": "Ranking V2 Oracle",
+    "accept_count": 2,
+    "notes": "Synthetic baseline fixture for ranking-v2 parity tests without live API calls."
+  },
+  "applicants": [
+    {
+      "applicant_id": "cand_alice_001",
+      "name": "Alice Chen",
+      "email": "alice@example.com",
+      "source_refs": ["csv:row:1"],
+      "enrichment_status": "complete"
+    },
+    {
+      "applicant_id": "cand_alice_002",
+      "name": "Alice Chen",
+      "email": "alice.alt@example.com",
+      "source_refs": ["csv:row:2"],
+      "enrichment_status": "complete"
+    },
+    {
+      "applicant_id": "cand_bob_001",
+      "name": "Bob Martinez",
+      "email": "bob@example.com",
+      "source_refs": ["csv:row:3"],
+      "enrichment_status": "complete"
+    }
+  ],
+  "stages": {
+    "normalized": [
+      {
+        "applicant_id": "cand_alice_001",
+        "name": "Alice Chen",
+        "display_name": "Alice Chen",
+        "email": "alice@example.com",
+        "has_github": true,
+        "has_linkedin": true
+      },
+      {
+        "applicant_id": "cand_alice_002",
+        "name": "Alice Chen",
+        "display_name": "Alice Chen",
+        "email": "alice.alt@example.com",
+        "has_github": false,
+        "has_linkedin": true
+      },
+      {
+        "applicant_id": "cand_bob_001",
+        "name": "Bob Martinez",
+        "display_name": "Bob Martinez",
+        "email": "bob@example.com",
+        "has_github": true,
+        "has_linkedin": false
+      }
+    ],
+    "pointwise": [
+      {
+        "applicant_id": "cand_alice_001",
+        "score": 94.2,
+        "confidence": "high",
+        "strongest_signal": "built a shipped OSS product",
+        "concerns": "none"
+      },
+      {
+        "applicant_id": "cand_alice_002",
+        "score": 61.0,
+        "confidence": "medium",
+        "strongest_signal": "clear builder signal",
+        "concerns": "lighter evidence than peer"
+      },
+      {
+        "applicant_id": "cand_bob_001",
+        "score": 83.4,
+        "confidence": "high",
+        "strongest_signal": "founder with real product",
+        "concerns": "limited public footprint"
+      }
+    ],
+    "pairwise": [
+      {
+        "applicant_id": "cand_alice_001",
+        "wins": 2,
+        "losses": 0,
+        "byes": 0,
+        "bt_strength": 1.9
+      },
+      {
+        "applicant_id": "cand_alice_002",
+        "wins": 0,
+        "losses": 2,
+        "byes": 0,
+        "bt_strength": 0.3
+      },
+      {
+        "applicant_id": "cand_bob_001",
+        "wins": 1,
+        "losses": 1,
+        "byes": 0,
+        "bt_strength": 1.0
+      }
+    ],
+    "combined": [
+      {
+        "applicant_id": "cand_alice_001",
+        "rank": 1,
+        "final_score": 0.98,
+        "pointwise_score": 94.2,
+        "swiss_strength": 1.9
+      },
+      {
+        "applicant_id": "cand_bob_001",
+        "rank": 2,
+        "final_score": 0.71,
+        "pointwise_score": 83.4,
+        "swiss_strength": 1.0
+      },
+      {
+        "applicant_id": "cand_alice_002",
+        "rank": 3,
+        "final_score": 0.28,
+        "pointwise_score": 61.0,
+        "swiss_strength": 0.3
+      }
+    ],
+    "borderline": [
+      {
+        "applicant_id": "cand_bob_001",
+        "needs_recheck": true,
+        "reason": "within cutline band"
+      }
+    ],
+    "quality": [
+      {
+        "applicant_id": "cand_alice_001",
+        "verdict": "STRONG YES",
+        "bs_check": "legit",
+        "specific_why": "Shipped an OSS product with clear evidence."
+      }
+    ],
+    "exports": {
+      "ranked_csv": [
+        {
+          "applicant_id": "cand_alice_001",
+          "decision": "ACCEPT",
+          "rank": 1,
+          "final_score": 0.98
+        },
+        {
+          "applicant_id": "cand_bob_001",
+          "decision": "ACCEPT",
+          "rank": 2,
+          "final_score": 0.71
+        },
+        {
+          "applicant_id": "cand_alice_002",
+          "decision": "WAITLIST",
+          "rank": 3,
+          "final_score": 0.28
+        }
+      ],
+      "needs_review": [
+        {
+          "applicant_id": "cand_bob_001",
+          "reason": "within cutline band"
+        }
+      ],
+      "failures": []
+    }
+  }
+}
