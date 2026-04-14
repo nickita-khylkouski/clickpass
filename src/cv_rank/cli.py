@@ -16,6 +16,7 @@ import asyncio
 import csv
 import json
 import logging
+import shlex
 import subprocess
 import sys
 import time
@@ -25,6 +26,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from cv_rank import __version__
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+ATTENDEE_QUEUE_SCRIPT = REPO_ROOT / "scripts" / "attendee_dossier_queue.py"
+MINIMAX_DOSSIER_WORKERS = REPO_ROOT / "ops" / "scripts" / "start_daytona_minimax_queue_workers.py"
+DEFAULT_DAYTONA_ENV = REPO_ROOT / ".env.daytona"
 
 
 # ---------------------------------------------------------------------------
@@ -1723,6 +1729,43 @@ def _build_parser() -> argparse.ArgumentParser:
     waves_predict_p.add_argument("--output-csv", default="results/upcoming_predictions_v2.csv")
     waves_predict_p.add_argument("--include-non-hackathons", action="store_true")
 
+    dossiers_p = subs.add_parser(
+        "dossiers",
+        help="Enqueue attendees and launch per-attendee full 3-pass MiniMax dossier workers on Daytona.",
+        epilog=(
+            "Examples:\n"
+            "  cv-rank dossiers --queue-name sf-minimax-exa --limit 25\n"
+            "  cv-rank dossiers --queue-name sf-minimax-exa --people-file people.json --sandbox-count 5 --workers-per-sandbox 5\n"
+            "  cv-rank dossiers --queue-name sf-minimax-exa --enqueue-only --people-file top_2000_deduped.json\n"
+            "\n"
+            "This command uses the queue-worker path, so each worker claims one attendee,\n"
+            "runs pass1 -> pass2 -> braindump, writes final outputs, then claims the next attendee."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    dossiers_p.add_argument("--queue-name", default="sf-minimax-exa")
+    dossiers_p.add_argument("--people-file", help="Optional JSON people file. If omitted, pulls ranked attendees from the platform DB.")
+    dossiers_p.add_argument("--limit", type=int, default=0, help="How many attendees to enqueue. 0 means use the queue default or all rows with --all.")
+    dossiers_p.add_argument("--offset", type=int, default=0)
+    dossiers_p.add_argument("--all", action="store_true", help="Enqueue all rows from the ranked source.")
+    dossiers_p.add_argument("--batch-size", type=int, default=250)
+    dossiers_p.add_argument("--enqueue-only", action="store_true")
+    dossiers_p.add_argument("--launch-only", action="store_true")
+    dossiers_p.add_argument("--model", default="MiniMax-M2.7")
+    dossiers_p.add_argument("--minimax-env-file", default=str(Path.home() / ".claude-wafer" / "minimax.env"))
+    dossiers_p.add_argument("--daytona-env-file", default=str(DEFAULT_DAYTONA_ENV))
+    dossiers_p.add_argument("--sandbox-prefix", default="cv-rank-minimax")
+    dossiers_p.add_argument("--sandbox-start-index", type=int, default=1)
+    dossiers_p.add_argument("--sandbox-count", type=int, default=5)
+    dossiers_p.add_argument("--workers-per-sandbox", type=int, default=5)
+    dossiers_p.add_argument("--web-mode", choices=("exa", "mixed", "claude"), default="exa")
+    dossiers_p.add_argument("--timeout-seconds", type=int, default=1800)
+    dossiers_p.add_argument("--cpu", type=int, default=4)
+    dossiers_p.add_argument("--memory", type=int, default=8)
+    dossiers_p.add_argument("--disk", type=int, default=10)
+    dossiers_p.add_argument("--log-dir", default="/tmp/daytona-minimax-queue-workers")
+    dossiers_p.add_argument("--dry-run", action="store_true")
+
     # ── reaccept ─────────────────────────────────────────────────
     reaccept_p = subs.add_parser(
         "reaccept",
@@ -2744,6 +2787,96 @@ def _cmd_waves_predict(args: argparse.Namespace) -> int:
     return _run_waves_script("predict_upcoming_v2.py", extra_args)
 
 
+def _render_cmd(cmd: list[str]) -> str:
+    return " ".join(shlex.quote(part) for part in cmd)
+
+
+def _build_dossier_enqueue_cmd(args: argparse.Namespace) -> list[str]:
+    cmd = [
+        sys.executable,
+        str(ATTENDEE_QUEUE_SCRIPT),
+        "enqueue",
+        "--queue-name",
+        args.queue_name,
+        "--offset",
+        str(args.offset),
+        "--batch-size",
+        str(args.batch_size),
+    ]
+    people_file = (args.people_file or "").strip()
+    if people_file:
+        cmd.extend(["--people-file", str(Path(people_file).expanduser().resolve())])
+    if args.all:
+        cmd.append("--all")
+    elif int(args.limit or 0) > 0:
+        cmd.extend(["--limit", str(args.limit)])
+    return cmd
+
+
+def _build_dossier_launch_cmd(args: argparse.Namespace) -> list[str]:
+    return [
+        sys.executable,
+        str(MINIMAX_DOSSIER_WORKERS),
+        "--env-file",
+        str(Path(args.daytona_env_file).expanduser().resolve()),
+        "--queue-name",
+        args.queue_name,
+        "--model",
+        args.model,
+        "--sandbox-prefix",
+        args.sandbox_prefix,
+        "--sandbox-start-index",
+        str(args.sandbox_start_index),
+        "--sandbox-count",
+        str(args.sandbox_count),
+        "--workers-per-sandbox",
+        str(args.workers_per_sandbox),
+        "--log-dir",
+        args.log_dir,
+        "--web-mode",
+        args.web_mode,
+        "--timeout-seconds",
+        str(args.timeout_seconds),
+        "--minimax-env-file",
+        str(Path(args.minimax_env_file).expanduser().resolve()),
+        "--cpu",
+        str(args.cpu),
+        "--memory",
+        str(args.memory),
+        "--disk",
+        str(args.disk),
+    ]
+
+
+def _cmd_dossiers(args: argparse.Namespace) -> int:
+    if args.enqueue_only and args.launch_only:
+        raise SystemExit("Use at most one of --enqueue-only or --launch-only.")
+    if not ATTENDEE_QUEUE_SCRIPT.exists():
+        raise SystemExit(f"Missing queue script: {ATTENDEE_QUEUE_SCRIPT}")
+    if not MINIMAX_DOSSIER_WORKERS.exists():
+        raise SystemExit(f"Missing MiniMax worker launcher: {MINIMAX_DOSSIER_WORKERS}")
+
+    enqueue_cmd = _build_dossier_enqueue_cmd(args)
+    launch_cmd = _build_dossier_launch_cmd(args)
+    if args.dry_run:
+        if args.people_file:
+            print(f"people_file={Path(args.people_file).expanduser().resolve()}")
+        else:
+            print("people_file=<platform-ranked source>")
+        print(f"enqueue_command={_render_cmd(enqueue_cmd)}")
+        print(f"launch_command={_render_cmd(launch_cmd)}")
+        return 0
+
+    if not args.launch_only:
+        enqueue_result = subprocess.run(enqueue_cmd, cwd=str(REPO_ROOT), check=False)
+        if enqueue_result.returncode != 0:
+            return int(enqueue_result.returncode)
+    if not args.enqueue_only:
+        launch_result = subprocess.run(launch_cmd, cwd=str(REPO_ROOT), check=False)
+        return int(launch_result.returncode)
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -2773,6 +2906,7 @@ def main() -> None:
         "sponsor-analyze": _cmd_sponsor_analyze,
         "waves-train": _cmd_waves_train,
         "waves-predict": _cmd_waves_predict,
+        "dossiers": _cmd_dossiers,
     }
 
     handler = dispatch.get(args.command)

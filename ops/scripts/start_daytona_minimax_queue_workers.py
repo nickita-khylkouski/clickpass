@@ -6,6 +6,11 @@ import os
 import subprocess
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_DAYTONA_ENV = REPO_ROOT / ".env.daytona"
+QUEUE_SCRIPT = REPO_ROOT / "scripts" / "attendee_dossier_queue.py"
+DAYTONA_RUNNER = REPO_ROOT / "ops" / "daytona" / "daytona_minimax_remote.py"
+
 
 def load_env_file(path: Path) -> dict[str, str]:
     env: dict[str, str] = {}
@@ -19,19 +24,21 @@ def load_env_file(path: Path) -> dict[str, str]:
 
 
 def parse_args() -> argparse.Namespace:
-    root = Path("/Users/nickita/.superset/worktrees/start/beaded-mind")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env-file", default=str(root / ".env.daytona"))
-    parser.add_argument("--queue-name", default="nyc-unified")
+    parser.add_argument("--env-file", default=str(DEFAULT_DAYTONA_ENV))
+    parser.add_argument("--queue-name", default="sf-minimax-exa")
     parser.add_argument("--model", default="MiniMax-M2.7")
     parser.add_argument("--sandbox-prefix", default="cv-rank-minimax")
     parser.add_argument("--sandbox-start-index", type=int, default=1)
     parser.add_argument("--sandbox-count", type=int, default=5)
-    parser.add_argument("--workers-per-sandbox", type=int, default=3)
+    parser.add_argument("--workers-per-sandbox", type=int, default=5)
     parser.add_argument("--log-dir", default="/tmp/daytona-minimax-queue-workers")
-    parser.add_argument("--web-mode", default="claude", choices=("exa", "mixed", "claude"))
+    parser.add_argument("--web-mode", default="exa", choices=("exa", "mixed", "claude"))
     parser.add_argument("--timeout-seconds", type=int, default=1800)
     parser.add_argument("--minimax-env-file", default=str(Path.home() / ".claude-wafer" / "minimax.env"))
+    parser.add_argument("--cpu", type=int, default=4)
+    parser.add_argument("--memory", type=int, default=8)
+    parser.add_argument("--disk", type=int, default=10)
     return parser.parse_args()
 
 
@@ -41,9 +48,10 @@ def main() -> int:
     base_env = os.environ.copy()
     base_env.update(load_env_file(env_file))
     base_env["MINIMAX_ENV_FILE"] = str(Path(args.minimax_env_file).expanduser().resolve())
+    base_env["DAYTONA_CPU"] = str(args.cpu)
+    base_env["DAYTONA_MEMORY"] = str(args.memory)
+    base_env["DAYTONA_DISK"] = str(args.disk)
 
-    queue_script = "/Users/nickita/cv-rank/scripts/attendee_dossier_queue.py"
-    runner = "/Users/nickita/.superset/worktrees/start/beaded-mind/daytona_minimax_remote.py"
     log_dir = Path(args.log_dir).expanduser().resolve()
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -59,14 +67,14 @@ def main() -> int:
                     [
                         "python3",
                         "-u",
-                        queue_script,
+                        str(QUEUE_SCRIPT),
                         "work",
                         "--queue-name",
                         args.queue_name,
                         "--execution-backend",
                         "daytona",
                         "--daytona-runner",
-                        runner,
+                        str(DAYTONA_RUNNER),
                         "--claude-model",
                         args.model,
                         "--wafer-web-mode",
