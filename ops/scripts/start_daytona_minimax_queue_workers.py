@@ -10,10 +10,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DAYTONA_ENV = REPO_ROOT / ".env.daytona"
 QUEUE_SCRIPT = REPO_ROOT / "scripts" / "attendee_dossier_queue.py"
 DAYTONA_RUNNER = REPO_ROOT / "ops" / "daytona" / "daytona_minimax_remote.py"
+APP_ENV_NAMES = ("SUPABASE_URL", "SUPABASE_KEY", "PLATFORM_DATABASE_URL")
 
 
 def load_env_file(path: Path) -> dict[str, str]:
     env: dict[str, str] = {}
+    if not path.exists():
+        return env
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
@@ -21,6 +24,25 @@ def load_env_file(path: Path) -> dict[str, str]:
         key, value = line.split("=", 1)
         env[key.strip()] = value.strip().strip('"').strip("'")
     return env
+
+
+def load_app_env() -> dict[str, str]:
+    merged: dict[str, str] = {}
+    candidates = [
+        REPO_ROOT / ".env",
+        Path.home() / "cv-rank" / ".env",
+    ]
+    for path in candidates:
+        values = load_env_file(path)
+        for key in APP_ENV_NAMES:
+            value = str(values.get(key, "")).strip()
+            if value and key not in merged:
+                merged[key] = value
+    for key in APP_ENV_NAMES:
+        value = str(os.environ.get(key, "")).strip()
+        if value:
+            merged[key] = value
+    return merged
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,6 +69,7 @@ def main() -> int:
     env_file = Path(args.env_file).expanduser().resolve()
     base_env = os.environ.copy()
     base_env.update(load_env_file(env_file))
+    base_env.update(load_app_env())
     base_env["MINIMAX_ENV_FILE"] = str(Path(args.minimax_env_file).expanduser().resolve())
     base_env["DAYTONA_CPU"] = str(args.cpu)
     base_env["DAYTONA_MEMORY"] = str(args.memory)
