@@ -37,6 +37,10 @@ def utc_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def utc_after(seconds: int) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + max(0, int(seconds))))
+
+
 def load_env() -> None:
     load_dotenv(REPO_ROOT / ".env")
 
@@ -112,6 +116,7 @@ def connect_queue(db_path: Path) -> sqlite3.Connection:
             "worker_host": "TEXT",
             "last_exit_code": "INTEGER",
             "failure_bucket": "TEXT",
+            "available_after": "TEXT",
         },
     )
     conn.commit()
@@ -330,28 +335,30 @@ def claim_next_job(conn: sqlite3.Connection, queue_name: str, *, max_attempts: i
     while True:
         conn.execute("BEGIN IMMEDIATE")
         try:
+            now = utc_now()
             row = conn.execute(
                 """
                 SELECT *
                 FROM jobs
                 WHERE queue_name = ? AND status = 'pending'
                   AND attempts < ?
+                  AND (available_after IS NULL OR available_after <= ?)
                 ORDER BY priority_rank ASC, id ASC
                 LIMIT 1
                 """,
-                (queue_name, max_attempts),
+                (queue_name, max_attempts, now),
             ).fetchone()
             if row is None:
                 conn.commit()
                 return None
-            now = utc_now()
             cursor = conn.execute(
                 """
                 UPDATE jobs
                 SET status = 'running',
                     started_at = ?,
                     updated_at = ?,
-                    attempts = attempts + 1
+                    attempts = attempts + 1,
+                    available_after = NULL
                 WHERE id = ? AND status = 'pending'
                 """,
                 (now, now, row["id"]),
@@ -432,8 +439,15 @@ def set_job_run_metadata(
     conn.commit()
 
 
-def requeue_job(conn: sqlite3.Connection, job_id: int, *, error: str | None = None) -> None:
+def requeue_job(
+    conn: sqlite3.Connection,
+    job_id: int,
+    *,
+    error: str | None = None,
+    delay_seconds: int = 0,
+) -> None:
     now = utc_now()
+    available_after = utc_after(delay_seconds) if delay_seconds > 0 else None
     conn.execute(
         """
         UPDATE jobs
@@ -443,10 +457,11 @@ def requeue_job(conn: sqlite3.Connection, job_id: int, *, error: str | None = No
             updated_at = ?,
             last_error = ?,
             last_exit_code = NULL,
-            failure_bucket = NULL
+            failure_bucket = NULL,
+            available_after = ?
         WHERE id = ?
         """,
-        (now, error, job_id),
+        (now, error, available_after, job_id),
     )
     conn.commit()
 
@@ -750,6 +765,13 @@ def _looks_like_bad_terminal_output(text: str) -> bool:
         "rate limit exceeded",
         "429 too many requests",
         "status code 429",
+        "status code 529",
+        "traffic is currently high",
+        "try again shortly",
+        "try again later",
+        "overloaded_error",
+        "all minimax api keys are on cooldown",
+        "token plan is designed for individual",
     ]
     return any(needle in lowered for needle in needles)
 
@@ -763,15 +785,26 @@ def _classify_failure_text(text: str) -> str | None:
         ("Exa credits exhausted", ["no_more_credits", "status code 402"]),
         ("Exa invalid API key", ["invalid_api_key", "status code 401"]),
         ("Claude authentication failure", ["failed to authenticate", "invalid authentication credentials", "authentication_error"]),
-        ("Provider quota / rate limit exhausted", [
+        ("Provider hard quota exhausted", [
             "insufficient_quota",
             "exceeded your current quota",
             "credit balance is too low",
             "quota exceeded",
             "billing_hard_limit",
+        ]),
+        ("Provider transient rate limit", [
             "rate limit exceeded",
             "429 too many requests",
             "status code 429",
+            "status 429",
+            "status code 529",
+            "status 529",
+            "traffic is currently high",
+            "try again shortly",
+            "try again later",
+            "overloaded_error",
+            "all minimax api keys are on cooldown",
+            "token plan is designed for individual",
         ]),
         ("Daytona apt/dpkg lock during bootstrap", ["could not get lock", "unable to acquire the dpkg frontend lock"]),
         ("Remote output archive missing", ["cannot stat", "failed to archive remote output"]),
@@ -792,7 +825,7 @@ def _is_terminal_failure_bucket(bucket: str | None) -> bool:
         "Exa credits exhausted",
         "Exa invalid API key",
         "Claude authentication failure",
-        "Provider quota / rate limit exhausted",
+        "Provider hard quota exhausted",
     }
 
 
@@ -999,6 +1032,11 @@ def validate_completed_run(run_dir: Path) -> str | None:
         snapshot_summary = str(current_snapshot.get("summary") or "").strip().lower()
         if _looks_like_bad_terminal_output(combined_text):
             return f"Rate-limit shell summary detected in {path.name}"
+        if (
+            "wafer research failed" in combined_text.lower()
+            and _classify_failure_text(combined_text) == "Provider transient rate limit"
+        ):
+            return f"Provider transient rate limit in {path.name}"
         if identity_status in (None, "", "error") and not _payload_has_real_substance(payload):
             return f"Zero-signal dossier output in {path.name}"
         if (
@@ -1705,8 +1743,9 @@ def command_work(args: argparse.Namespace) -> int:
             error_text = _build_failure_summary(Path(run_dir), stdout, stderr, validation_error)[-4000:]
             failure_bucket = _classify_failure_text(error_text) or (validation_error or "runner_failure")
             terminal_failure = _is_terminal_failure_bucket(failure_bucket)
+            requeue_delay_seconds = 45 if failure_bucket == "Provider transient rate limit" else 0
             if job.attempts < args.max_attempts and not terminal_failure:
-                requeue_job(conn, job.id, error=error_text)
+                requeue_job(conn, job.id, error=error_text, delay_seconds=requeue_delay_seconds)
                 conn.execute(
                     "UPDATE jobs SET last_exit_code = ?, failure_bucket = ? WHERE id = ?",
                     (code, failure_bucket, job.id),

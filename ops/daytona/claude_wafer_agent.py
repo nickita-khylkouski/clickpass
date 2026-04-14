@@ -17,6 +17,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from minimax_key_selection import (
+    build_minimax_runtime_values,
+    cooldown_matcher as minimax_cooldown_matcher,
+    mark_key_cooldown,
+)
+
 
 CLAUDE_WAFER_BIN = os.environ.get(
     "CLAUDE_WAFER_BIN", "/Users/nickita/.superset/bin/claude-wafer"
@@ -59,22 +65,13 @@ def _read_simple_env_file(path: Path) -> dict[str, str]:
 
 
 def minimax_settings() -> dict[str, str]:
-    settings = _read_simple_env_file(MINIMAX_ENV_FILE)
-    for key in (
-        "MINIMAX_API_KEY",
-        "MINIMAX_API_HOST",
-        "MINIMAX_MODEL",
-        "API_TIMEOUT_MS",
-        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
-    ):
-        env_value = os.environ.get(key, "").strip()
-        if env_value:
-            settings[key] = env_value
-    settings.setdefault("MINIMAX_API_HOST", "https://api.minimax.io")
-    settings.setdefault("MINIMAX_MODEL", "MiniMax-M2.7")
-    settings.setdefault("API_TIMEOUT_MS", "3000000")
-    settings.setdefault("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
-    return settings
+    model = os.environ.get("MINIMAX_MODEL", "").strip() or "MiniMax-M2.7"
+    return build_minimax_runtime_values(
+        model=model,
+        env_file=MINIMAX_ENV_FILE,
+        environ=os.environ,
+        seed=os.environ.get("MINIMAX_KEY_SEED", "").strip() or None,
+    )
 
 
 def _split_exa_key_blob(raw: str) -> list[str]:
@@ -160,6 +157,26 @@ def build_process_env() -> dict[str, str]:
         }
     )
     return env
+
+
+def maybe_mark_minimax_cooldown(process_env: dict[str, str], *texts: str) -> None:
+    if launcher_kind() != "minimax":
+        return
+    combined = "\n".join(text for text in texts if text).strip()
+    if not combined or not minimax_cooldown_matcher(combined):
+        return
+    raw_index = str(process_env.get("MINIMAX_KEY_INDEX", "")).strip()
+    if not raw_index.isdigit():
+        return
+    try:
+        mark_key_cooldown(
+            env_file=MINIMAX_ENV_FILE,
+            key_index=int(raw_index),
+            reason="rate_limit",
+            observed_text=combined,
+        )
+    except Exception:
+        return
 
 
 def utc_now() -> str:
@@ -422,14 +439,16 @@ def run_codex(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_file = output_dir / f"codex-last-message-{uuid.uuid4()}.txt"
     cmd = build_codex_command(prompt, claude_args=claude_args, output_file=output_file)
+    process_env = build_process_env()
     result = subprocess.run(
         cmd,
         text=True,
         capture_output=True,
         check=False,
-        env=build_process_env(),
+        env=process_env,
     )
     final_output = output_file.read_text(encoding="utf-8") if output_file.exists() else ""
+    maybe_mark_minimax_cooldown(process_env, result.stderr, final_output or result.stdout)
     try:
         output_file.unlink(missing_ok=True)
     except OSError:
@@ -466,13 +485,16 @@ def run_claude(
         no_session_persistence=no_session_persistence,
     )
     cmd = finalize_command(cmd)
-    return subprocess.run(
+    process_env = build_process_env()
+    result = subprocess.run(
         cmd,
         text=True,
         capture_output=True,
         check=False,
-        env=build_process_env(),
+        env=process_env,
     )
+    maybe_mark_minimax_cooldown(process_env, result.stderr, result.stdout)
+    return result
 
 
 def print_result_block(
@@ -697,13 +719,14 @@ def run_claude_live(
     if launcher_kind() == "codex":
         output_file = combined_path.parent / f"{combined_path.stem}.last-message.txt"
         cmd = build_codex_command(prompt, claude_args=claude_args, output_file=output_file)
+        process_env = build_process_env()
         proc = subprocess.Popen(
             cmd,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             bufsize=1,
-            env=build_process_env(),
+            env=process_env,
         )
 
         stdout_capture: list[str] = []
@@ -741,12 +764,14 @@ def run_claude_live(
         stdout_thread.join()
         stderr_thread.join()
         final_output = output_file.read_text(encoding="utf-8") if output_file.exists() else ""
-        return subprocess.CompletedProcess(
+        final_result = subprocess.CompletedProcess(
             args=cmd,
             returncode=returncode,
             stdout=final_output or "".join(stdout_capture),
             stderr="".join(stderr_capture),
         )
+        maybe_mark_minimax_cooldown(process_env, final_result.stderr, final_result.stdout)
+        return final_result
     cmd = build_claude_command(
         prompt,
         mode,
@@ -758,13 +783,14 @@ def run_claude_live(
         no_session_persistence=no_session_persistence,
     )
     cmd = finalize_command(cmd)
+    process_env = build_process_env()
     proc = subprocess.Popen(
         cmd,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         bufsize=1,
-        env=build_process_env(),
+        env=process_env,
     )
 
     stdout_capture: list[str] = []
@@ -802,12 +828,14 @@ def run_claude_live(
     stdout_thread.join()
     stderr_thread.join()
 
-    return subprocess.CompletedProcess(
+    final_result = subprocess.CompletedProcess(
         args=cmd,
         returncode=returncode,
         stdout="".join(stdout_capture),
         stderr="".join(stderr_capture),
     )
+    maybe_mark_minimax_cooldown(process_env, final_result.stderr, final_result.stdout)
+    return final_result
 
 
 def command_loop(args: argparse.Namespace) -> int:

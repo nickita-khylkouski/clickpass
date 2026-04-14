@@ -160,8 +160,11 @@ def ensure_remote_runtime(sandbox, args: argparse.Namespace) -> None:
     sandbox.fs.upload_file(bundle, remote_bundle)
     sandbox.fs.upload_file(env_text.encode("utf-8"), f"{remote_root}/.env.remote")
     sandbox.fs.upload_file(minimax_env_text.encode("utf-8"), f"{remote_root}/.minimax.remote")
-    agent_path = Path(__file__).resolve().parent / "claude_wafer_agent.py"
+    agent_dir = Path(__file__).resolve().parent
+    agent_path = agent_dir / "claude_wafer_agent.py"
+    key_selector_path = agent_dir / "minimax_key_selection.py"
     sandbox.fs.upload_file(agent_path.read_bytes(), f"{REMOTE_HOME}/tools/orchestrator/claude_wafer_agent.py")
+    sandbox.fs.upload_file(key_selector_path.read_bytes(), f"{REMOTE_HOME}/tools/orchestrator/minimax_key_selection.py")
     setup_cmd = (
         f"lock={shlex.quote(lock_dir)}; "
         "while ! mkdir \"$lock\" 2>/dev/null; do sleep 1; done; "

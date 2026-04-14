@@ -71,6 +71,7 @@ def main() -> int:
     base_env.update(load_env_file(env_file))
     base_env.update(load_app_env())
     base_env["MINIMAX_ENV_FILE"] = str(Path(args.minimax_env_file).expanduser().resolve())
+    base_env["MINIMAX_KEY_COOLDOWN_SECONDS"] = "30"
     base_env["DAYTONA_CPU"] = str(args.cpu)
     base_env["DAYTONA_MEMORY"] = str(args.memory)
     base_env["DAYTONA_DISK"] = str(args.disk)
@@ -104,6 +105,8 @@ def main() -> int:
                         args.web_mode,
                         "--wafer-timeout-seconds",
                         str(args.timeout_seconds),
+                        "--max-attempts",
+                        "4",
                         "--effort",
                         "low",
                         "--wafer-expansion-pass",
